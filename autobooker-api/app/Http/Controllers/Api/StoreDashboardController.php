@@ -78,6 +78,8 @@ class StoreDashboardController extends Controller
             'success' => true,
 
             'data' => [
+                'store' => $store,
+                
                 'monthlyRevenue' => $monthlyRevenue,
 
                 'todayAppointmentsCount' => $todayAppointments->count(),
@@ -90,6 +92,8 @@ class StoreDashboardController extends Controller
 
                 'todayAppointments' => $todayAppointments,
             ]
+
+            
         ]);
     }
 }

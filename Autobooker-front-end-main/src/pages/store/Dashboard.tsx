@@ -12,6 +12,9 @@ import RegisterExpenseModal from "./modals/RegisterExpenseModal";
 import AdvanceStatusModal from "./modals/AdvanceStatusModal";
 
 type DashboardData = {
+  store: {
+    name: string;
+  };
   monthlyRevenue: number;
   todayAppointmentsCount: number;
   servedClients: number;
@@ -154,7 +157,7 @@ export default function StoreDashboard() {
     <div className="flex flex-col gap-8">
       {/* SEÇÃO 1: CABEÇALHO */}
       <PageHeader
-        title="Lava Rápido Express"
+        title={dashboard?.store?.name || "Minha Loja"}
         subtitle="Dashboard / Resumo do dia"
       >
         <Button
