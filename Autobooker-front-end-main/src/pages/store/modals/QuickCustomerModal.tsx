@@ -1,0 +1,85 @@
+import { useState } from "react";
+import { X } from "lucide-react";
+import Button from "@/components/ui/Button";
+
+interface QuickCustomerModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function QuickCustomerModal({
+  isOpen,
+  onClose,
+}: QuickCustomerModalProps) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [plate, setPlate] = useState("");
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    console.log({ name, phone, plate });
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-2 sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[540px] rounded-md bg-white shadow-2xl border border-zinc-200 p-4 sm:p-5"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-zinc-200 pb-2.5 mb-4">
+          <h2 className="text-lg sm:text-xl font-black tracking-tight text-[#0B0B1A]">
+            Cadastrar Cliente
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors"
+            aria-label="Fechar modal"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="text"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Nome Completo"
+            className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <input
+              type="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              placeholder="Telefone (WhatsApp)"
+              className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
+            />
+            <input
+              type="text"
+              value={plate}
+              onChange={(event) => setPlate(event.target.value)}
+              placeholder="Placa do Veículo Preferencial"
+              className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
+            />
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full !rounded-md !py-3 text-lg font-bold shadow-lg shadow-[#820000]/20"
+          >
+            Salvar Cliente na Base
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+}
