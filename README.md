@@ -139,7 +139,7 @@ php artisan serve
 ## Frontend
 
 ```bash
-cd autobooker-front
+cd autobooker-front-end-main
 
 npm install
 
