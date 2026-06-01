@@ -1,51 +1,136 @@
-import { useState } from "react";
-import { createAppointment } from "@/services/appointments.service";
+import { useEffect, useState } from "react";
+import api from "@/services/api";
 import { CalendarDays, ChevronDown, Clock3, X } from "lucide-react";
 import Button from "@/components/ui/Button";
 
 interface NewAppointmentModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onCreated?: () => void;
 }
 
-const SERVICES = [
-  "Lavagem Simples (R$ 50)",
-  "Lavagem Completa SUV (R$ 95)",
-  "Polimento Cristalizado (R$ 180)",
-  "Higienizacao Interna (R$ 130)",
-] as const;
+type StoreService = {
+  id: number | string;
+  name: string;
+  price: number | string;
+};
 
 export default function NewAppointmentModal({
   isOpen,
   onClose,
+  onCreated,
 }: NewAppointmentModalProps) {
   const [phone, setPhone] = useState("");
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [service, setService] = useState<(typeof SERVICES)[number]>(SERVICES[0]);
+  const [client, setClient] = useState<any | null>(null);
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [vehicleId, setVehicleId] = useState("");
+
+  const [appointmentDate, setAppointmentDate] = useState("");
+  const [appointmentTime, setAppointmentTime] = useState("");
+  const [serviceId, setServiceId] = useState("");
+  const [services, setServices] = useState<StoreService[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    async function loadServices() {
+      try {
+        const response = await api.get("/store/services");
+        setServices(response.data || []);
+
+        if (response.data?.length > 0) {
+          setServiceId(String(response.data[0].id));
+        }
+      } catch (error) {
+        console.error("Erro ao carregar serviços:", error);
+        alert("Erro ao carregar serviços da loja.");
+      }
+    }
+
+    loadServices();
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
+  function resetForm() {
+    setPhone("");
+    setClient(null);
+    setVehicles([]);
+    setVehicleId("");
+    setAppointmentDate("");
+    setAppointmentTime("");
+    setServiceId("");
+  }
+
+  async function handleSearchClient() {
+    if (!phone) {
+      alert("Informe o telefone do cliente.");
+      return;
+    }
+
+    try {
+      const response = await api.get("/store/customers/by-phone", {
+        params: { phone },
+      });
+
+      const foundClient = response.data.data;
+
+      setClient(foundClient);
+      setVehicles(foundClient.vehicles || []);
+
+      if (foundClient.vehicles?.length > 0) {
+        setVehicleId(String(foundClient.vehicles[0].id));
+      }
+
+      alert(`Cliente encontrado: ${foundClient.name}`);
+    } catch (error: any) {
+      console.error("Erro ao buscar cliente:", error);
+
+      setClient(null);
+      setVehicles([]);
+      setVehicleId("");
+
+      alert(error?.response?.data?.message || "Cliente não encontrado.");
+    }
+  }
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-  
+
+    if (!phone || !vehicleId || !appointmentDate || !appointmentTime || !serviceId) {
+      alert("Preencha todos os campos e selecione um veículo.");
+      return;
+    }
+
     try {
-      const [day, month, year] = date.split("/");
-  
-      await createAppointment({
-        client_id: 1,
-        store_id: 1,
-        vehicle_id: 1,
-        service_id: 1,
-        appointment_date: `${year}-${month}-${day}`,
-        appointment_time: `${time}:00`,
-      } as any);
-  
+      setLoading(true);
+
+      await api.post("/store/appointments/manual", {
+        phone,
+        vehicle_id: vehicleId,
+        appointment_date: appointmentDate,
+        appointment_time: `${appointmentTime}:00`,
+        service_id: serviceId,
+      });
+
       alert("Agendamento criado com sucesso!");
+
+      resetForm();
       onClose();
-    } catch (error) {
+
+      if (onCreated) {
+        onCreated();
+      }
+    } catch (error: any) {
       console.error("Erro ao criar agendamento:", error);
-      alert("Erro ao criar agendamento");
+
+      const message =
+        error?.response?.data?.message || "Erro ao criar agendamento.";
+
+      alert(message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -62,6 +147,7 @@ export default function NewAppointmentModal({
           <h2 className="text-xl sm:text-2xl font-black tracking-tight text-[#0B0B1A]">
             Lançar Novo Agendamento
           </h2>
+
           <button
             type="button"
             onClick={onClose}
@@ -73,24 +159,68 @@ export default function NewAppointmentModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <input
-            type="tel"
-            value={phone}
-            onChange={(event) => setPhone(event.target.value)}
-            placeholder="Celular do Cliente (Ex: 11 99999-9999)"
-            className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
-          />
+          <div className="flex gap-2">
+            <input
+              type="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              placeholder="Celular do Cliente (Ex: 11 99999-9999)"
+              className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
+            />
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleSearchClient}
+              className="!rounded-md whitespace-nowrap"
+            >
+              Buscar
+            </Button>
+          </div>
+
+          {client && (
+            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3">
+              <p className="text-sm font-bold text-zinc-900">
+                Cliente: {client.name}
+              </p>
+              <p className="text-xs text-zinc-500">
+                Telefone: {client.phone}
+              </p>
+            </div>
+          )}
+
+          {vehicles.length > 0 && (
+            <div className="relative">
+              <select
+                value={vehicleId}
+                onChange={(event) => setVehicleId(event.target.value)}
+                className="w-full appearance-none rounded-md border border-zinc-300 bg-white px-4 pr-10 py-2.5 text-sm font-medium text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
+              >
+                {vehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.brand || vehicle.make || "Veículo"}{" "}
+                    {vehicle.model || ""}{" "}
+                    {vehicle.plate ? `- ${vehicle.plate}` : ""}
+                  </option>
+                ))}
+              </select>
+
+              <ChevronDown
+                size={18}
+                className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-zinc-800"
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="relative">
               <input
-                type="text"
-                inputMode="numeric"
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
-                placeholder="dd/mm/aaaa"
+                type="date"
+                value={appointmentDate}
+                onChange={(event) => setAppointmentDate(event.target.value)}
                 className="w-full rounded-md border border-zinc-300 bg-white px-4 pr-10 py-2.5 text-sm font-medium text-zinc-800 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
               />
+
               <CalendarDays
                 size={16}
                 className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-zinc-700"
@@ -99,13 +229,12 @@ export default function NewAppointmentModal({
 
             <div className="relative">
               <input
-                type="text"
-                inputMode="numeric"
-                value={time}
-                onChange={(event) => setTime(event.target.value)}
-                placeholder="--:--"
+                type="time"
+                value={appointmentTime}
+                onChange={(event) => setAppointmentTime(event.target.value)}
                 className="w-full rounded-md border border-zinc-300 bg-white px-4 pr-10 py-2.5 text-sm font-medium text-zinc-800 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
               />
+
               <Clock3
                 size={16}
                 className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-zinc-700"
@@ -115,16 +244,26 @@ export default function NewAppointmentModal({
 
           <div className="relative">
             <select
-              value={service}
-              onChange={(event) => setService(event.target.value as (typeof SERVICES)[number])}
+              value={serviceId}
+              onChange={(event) => setServiceId(event.target.value)}
               className="w-full appearance-none rounded-md border border-zinc-300 bg-white px-4 pr-10 py-2.5 text-sm font-medium text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
             >
-              {SERVICES.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
+              {services.length === 0 ? (
+                <option value="">Nenhum serviço cadastrado</option>
+              ) : (
+                services.map((service) => (
+                  <option key={service.id} value={service.id}>
+                    {service.name} (
+                    {Number(service.price).toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
+                    )
+                  </option>
+                ))
+              )}
             </select>
+
             <ChevronDown
               size={18}
               className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-zinc-800"
@@ -133,9 +272,10 @@ export default function NewAppointmentModal({
 
           <Button
             type="submit"
+            disabled={loading}
             className="w-full !rounded-md !py-3 text-lg font-bold shadow-lg shadow-[#820000]/20"
           >
-            Confirmar Horario
+            {loading ? "Criando..." : "Confirmar Horário"}
           </Button>
         </form>
       </div>

@@ -191,6 +191,7 @@ export default function StoreAgenda() {
       <NewAppointmentModal
         isOpen={isNewAppointmentOpen}
         onClose={() => setIsNewAppointmentOpen(false)}
+        onCreated={loadAppointments}
       />
 
       <Card className="rounded-md border-zinc-200 !p-5 md:!p-6">

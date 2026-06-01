@@ -1,4 +1,5 @@
-import { useState, type ComponentType } from "react";
+import { useEffect, useState, type ComponentType } from "react";
+import api from "@/services/api";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -36,27 +37,6 @@ type RewardIconId =
   | "percent"
   | "coins"
   | "star";
-
-  const initialStores: Store[] = [
-    {
-      id: "s1",
-      name: "Lava Rápido Express",
-      points: 120,
-      status: "active",
-      headerGradient: "from-slate-900 via-blue-950 to-slate-900",
-      headerAccent: "text-blue-300/90",
-      rewards: [],
-    },
-    {
-      id: "s2",
-      name: "Imperium Auto Detail",
-      points: 45,
-      status: "active",
-      headerGradient: "from-zinc-900 via-neutral-900 to-zinc-950",
-      headerAccent: "text-zinc-400",
-      rewards: [],
-    },
-  ];
 
 const REWARD_ICONS: Record<
   RewardIconId,
@@ -118,20 +98,9 @@ function handlePrint() {
 export default function ClientLoyalty() {
   const toast = useToast();
   const [searchTerm, setSearchTerm] = useState("");
-  const [stores, setStores] = useState<Store[]>(initialStores);
+  const [stores, setStores] = useState<Store[]>([]);
 
-  const [claims, setClaims] = useState<RewardClaim[]>([
-    {
-      id: "c1",
-      storeId: "s1",
-      storeName: "Lava Rápido Express",
-      rewardName: "Aromatizante Interno (Brinde)",
-      pointsSpent: 100,
-      voucher: "LAV-2024-001-ABC123",
-      date: "15/03/2026",
-      status: "used",
-    },
-  ]);
+  const [claims, setClaims] = useState<RewardClaim[]>([]);
 
   const [selectedReward, setSelectedReward] = useState<{
     store: Store;
@@ -141,41 +110,71 @@ export default function ClientLoyalty() {
   const [showVoucherModal, setShowVoucherModal] = useState<RewardClaim | null>(
     null,
   );
+
+  useEffect(() => {
+    loadLoyalty();
+  }, []);
+  
+  async function loadLoyalty() {
+    try {
+      const { data } = await api.get("/loyalty");
+  
+      const mappedStores = data.stores.map((store: any) => ({
+        id: String(store.storeId),
+        name: store.storeName,
+        points: store.points,
+        status: "active",
+  
+        headerGradient:
+          "from-slate-900 via-blue-950 to-slate-900",
+  
+        headerAccent:
+          "text-blue-300/90",
+  
+        rewards: (store.rewards || []).map((reward: any) => ({
+          id: String(reward.id),
+          name: reward.name,
+          cost: reward.points_cost,
+          description: "Benefício disponível para resgate.",
+          iconId: "gift",
+        })),
+      }));
+  
+      setStores(mappedStores);
+      setClaims(data.claims || []);
+    } catch (error) {
+      console.error("Erro ao carregar fidelidade:", error);
+    }
+  }
+
   const totalPoints = stores.reduce((sum, store) => sum + store.points, 0);
 
   const filteredStores = stores.filter((store) =>
     store.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  const handleClaimReward = () => {
+  const handleClaimReward = async () => {
     if (!selectedReward) return;
-
-    setStores(
-      stores.map((store) =>
-        store.id === selectedReward.store.id
-          ? {
-              ...store,
-              points: Math.max(0, store.points - selectedReward.reward.cost),
-            }
-          : store,
-      ),
-    );
-
-    const newClaim: RewardClaim = {
-      id: `c${claims.length + 1}`,
-      storeId: selectedReward.store.id,
-      storeName: selectedReward.store.name,
-      rewardName: selectedReward.reward.name,
-      pointsSpent: selectedReward.reward.cost,
-      voucher: `${selectedReward.store.name.split(" ")[0]}-${new Date().getFullYear()}-${String(claims.length + 1).padStart(3, "0")}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-      date: new Date().toLocaleDateString("pt-BR"),
-      status: "pending",
-    };
-
-    setClaims([...claims, newClaim]);
-    setShowVoucherModal(newClaim);
-    setShowClaimModal(false);
-    setSelectedReward(null);
+  
+    try {
+      const { data } = await api.post("/loyalty/redeem", {
+        reward_id: Number(selectedReward.reward.id),
+      });
+  
+      const newClaim = data.data;
+  
+      setShowVoucherModal(newClaim);
+      setShowClaimModal(false);
+      setSelectedReward(null);
+  
+      await loadLoyalty();
+  
+      toast.success("Recompensa resgatada com sucesso.");
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Erro ao resgatar recompensa."
+      );
+    }
   };
 
   const copyVoucher = (voucher: string) => {

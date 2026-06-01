@@ -1,43 +1,96 @@
 import React, { useState } from "react";
 import Button from "@/components/ui/Button";
+import api from "@/services/api";
 
 interface NewRewardModalProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string;
   initialData?: {
+    id?: number;
     name: string;
-    points: string;
-    status: string;
+    points_cost?: number;
+    points?: string;
+    active?: boolean;
+    status?: string;
   } | null;
+  onSaved?: () => void;
 }
 
-export default function NewRewardModal({ isOpen, onClose, title, initialData }: NewRewardModalProps) {
+export default function NewRewardModal({
+  isOpen,
+  onClose,
+  title,
+  initialData,
+  onSaved,
+}: NewRewardModalProps) {
   const [rewardName, setRewardName] = useState(initialData?.name || "");
   const [description, setDescription] = useState("");
-  const [pointsCost, setPointsCost] = useState(initialData?.points.replace(" pts", "") || "");
-  const [status, setStatus] = useState(initialData?.status || "ativa");
+  const [pointsCost, setPointsCost] = useState(
+    String(initialData?.points_cost ?? initialData?.points?.replace(" pts", "") ?? "")
+  );
+  const [status, setStatus] = useState(
+    initialData?.active === false || initialData?.status === "inativa" ? "pausada" : "ativa"
+  );
 
   // Reset form when initialData changes or modal opens
   React.useEffect(() => {
     if (isOpen) {
       setRewardName(initialData?.name || "");
-      setPointsCost(initialData?.points.replace(" pts", "") || "");
-      setStatus(initialData?.status || "ativa");
+      setPointsCost(
+        String(initialData?.points_cost ?? initialData?.points?.replace(" pts", "") ?? "")
+      );
+      setStatus(
+        initialData?.active === false || initialData?.status === "inativa" ? "pausada" : "ativa"
+      );
     }
   }, [isOpen, initialData]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    console.log({
-      rewardName,
-      description,
-      pointsCost,
-      status,
-    });
-    onClose();
+  
+    try {
+      const payload = {
+        name: rewardName,
+        points_cost: Number(pointsCost),
+      };
+  
+      let savedReward;
+  
+      if (initialData?.id) {
+        const response = await api.put(
+          `/store/loyalty/rewards/${initialData.id}`,
+          payload
+        );
+  
+        savedReward = response.data.data;
+      } else {
+        const response = await api.post("/store/loyalty/rewards", payload);
+  
+        savedReward = response.data.data;
+      }
+  
+      if (savedReward && status === "pausada" && savedReward.active === true) {
+        await api.patch(`/store/loyalty/rewards/${savedReward.id}/toggle`);
+      }
+  
+      if (savedReward && status === "ativa" && savedReward.active === false) {
+        await api.patch(`/store/loyalty/rewards/${savedReward.id}/toggle`);
+      }
+  
+      alert(initialData ? "Recompensa atualizada!" : "Recompensa criada!");
+  
+      if (onSaved) {
+        onSaved();
+      }
+  
+      onClose();
+    } catch (error: any) {
+      console.error("Erro ao salvar recompensa:", error);
+      alert(error?.response?.data?.message || "Erro ao salvar recompensa.");
+    }
   };
 
   return (

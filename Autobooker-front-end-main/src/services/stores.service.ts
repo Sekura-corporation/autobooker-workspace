@@ -136,6 +136,21 @@ export async function getStoreSettings(storeId: string, tenantId?: string) {
   return data;
 }
 
+export async function getStoreRewards(storeId: string) {
+  const { data } = await api.get(`/stores/${storeId}/rewards`);
+  return data;
+}
+
+export async function getStoreProducts(storeId: string) {
+  const { data } = await api.get(`/stores/${storeId}/products`);
+  return data;
+}
+
+export async function getStorePackages(storeId: string) {
+  const { data } = await api.get(`/stores/${storeId}/packages`);
+  return data;
+}
+
 const storesService = {
   listStores,
   getStore,

@@ -4,15 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class PackageModel extends Model
+class LoyaltySetting extends Model
 {
     protected $fillable = [
         'store_id',
-        'name',
-        'description',
-        'price',
-        'sessions',
-        'validity_days',
+        'spent_value',
+        'points_value',
     ];
 
     public function store()

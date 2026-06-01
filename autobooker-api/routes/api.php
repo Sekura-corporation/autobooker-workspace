@@ -15,6 +15,11 @@ use App\Http\Controllers\Api\LoyaltyController;
 use App\Http\Controllers\Api\StoreDashboardController;
 use App\Http\Controllers\Api\StoreExpenseController;
 use App\Http\Controllers\Api\StoreProfileController;
+use App\Http\Controllers\Api\StoreCustomerController;
+use App\Http\Controllers\Api\StoreLoyaltyController;
+use App\Http\Controllers\Api\StoreReportController;
+use App\Http\Controllers\Api\StoreStockController;
+use App\Http\Controllers\Api\StorePackageController;
 
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
@@ -23,7 +28,6 @@ Route::prefix('auth')->group(function () {
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
-        Route::middleware('auth:sanctum')->get('/loyalty', [LoyaltyController::class, 'index']);
         Route::post('/logout', [AuthController::class, 'logout']);
     });
 });
@@ -43,13 +47,45 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/store/appointments', [StoreAppointmentController::class, 'index']);
         Route::patch('/store/appointments/{appointment}/status', [StoreAppointmentController::class, 'updateStatus']);
         Route::get('/store/appointments/{appointment}', [StoreAppointmentController::class, 'show']);
+        Route::post('/store/appointments/manual', [StoreAppointmentController::class, 'storeManual']);
+        Route::get('/store/customers/by-phone', [StoreAppointmentController::class, 'findCustomerByPhone']);
+        
+        Route::get('/store/customers', [StoreCustomerController::class, 'index']);
+        Route::get('/store/customers/{client}', [StoreCustomerController::class, 'show']);
+        Route::post('/store/customers', [StoreCustomerController::class, 'store']);
+
+        Route::get('/store/loyalty', [StoreLoyaltyController::class, 'index']);
+        Route::post('/store/loyalty/rewards', [StoreLoyaltyController::class, 'storeReward']);
+        Route::put('/store/loyalty/rewards/{reward}', [StoreLoyaltyController::class, 'updateReward']);
+        Route::patch('/store/loyalty/rewards/{reward}/toggle', [StoreLoyaltyController::class, 'toggleReward']);
+        Route::put('/store/loyalty/rule', [StoreLoyaltyController::class, 'updateRule']);
+
+        Route::get('/store/reports', [StoreReportController::class, 'index']);
+
+        Route::get('/store/stock', [StoreStockController::class, 'index']);
+        Route::post('/store/stock/items', [StoreStockController::class, 'storeItem']);
+        Route::post('/store/stock/items/{item}/movement', [StoreStockController::class, 'movement']);
+        Route::get('/store/stock/history', [StoreStockController::class, 'history']);
+        Route::delete('/store/stock/items/{item}', [StoreStockController::class, 'destroy']);
+
+        Route::get('/store/packages', [StorePackageController::class, 'index']);
+        Route::post('/store/packages', [StorePackageController::class, 'store']);
+        Route::put('/store/packages/{package}', [StorePackageController::class, 'update']);
+        Route::delete('/store/packages/{package}', [StorePackageController::class, 'destroy']);
     });
+
+    Route::middleware('auth:sanctum')->get('/loyalty', [LoyaltyController::class, 'index']);
+    Route::middleware('auth:sanctum')->post('/loyalty/redeem', [LoyaltyController::class, 'redeem']);
 
     // Stores
     Route::get('/stores', [StoreController::class, 'index']);
+    Route::get('/stores/{store}/products', [StoreController::class, 'products']);
+    Route::get('/stores/{store}/packages', [StoreController::class, 'packages']);
     Route::get('/stores/{store}', [StoreController::class, 'show']);
     Route::get('/stores/{store}/services', [StoreController::class, 'services']);
-    Route::get('/stores/{store}/booked-times', [StoreController::class, 'bookedTimes']);    
+    Route::get('/stores/{store}/booked-times', [StoreController::class, 'bookedTimes']);
+    Route::get('/stores/{store}/rewards', [StoreController::class, 'rewards']);
+    
     
 
     // Services

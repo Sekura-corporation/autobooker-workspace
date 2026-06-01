@@ -1,26 +1,60 @@
 import { useState } from "react";
+import api from "@/services/api";
 import { X } from "lucide-react";
 import Button from "@/components/ui/Button";
 
 interface QuickCustomerModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onCreated?: () => void;
 }
 
 export default function QuickCustomerModal({
   isOpen,
   onClose,
+  onCreated,
 }: QuickCustomerModalProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [plate, setPlate] = useState("");
+  const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    console.log({ name, phone, plate });
-    onClose();
+  
+    if (!name || !phone) {
+      alert("Informe nome e telefone.");
+      return;
+    }
+  
+    try {
+      setLoading(true);
+  
+      await api.post("/store/customers", {
+        name,
+        phone,
+        plate,
+      });
+  
+      alert("Cliente cadastrado com sucesso!");
+  
+      setName("");
+      setPhone("");
+      setPlate("");
+  
+      if (onCreated) {
+        onCreated();
+      }
+  
+      onClose();
+    } catch (error: any) {
+      console.error("Erro ao cadastrar cliente:", error);
+      alert(error?.response?.data?.message || "Erro ao cadastrar cliente.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -74,9 +108,10 @@ export default function QuickCustomerModal({
 
           <Button
             type="submit"
+            disabled={loading}
             className="w-full !rounded-md !py-3 text-lg font-bold shadow-lg shadow-[#820000]/20"
           >
-            Salvar Cliente na Base
+            {loading ? "Salvando..." : "Salvar Cliente na Base"}
           </Button>
         </form>
       </div>

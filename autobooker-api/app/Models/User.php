@@ -54,5 +54,9 @@ class User extends Authenticatable
         return $this->role === 'admin';
     }
     
+    public function vehicles()
+    {
+        return $this->hasMany(Vehicle::class, 'client_id');
+    }
 }
 

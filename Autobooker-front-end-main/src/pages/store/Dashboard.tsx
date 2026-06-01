@@ -13,11 +13,13 @@ import AdvanceStatusModal from "./modals/AdvanceStatusModal";
 
 type DashboardData = {
   store: {
+    id: number;
     name: string;
   };
   monthlyRevenue: number;
   todayAppointmentsCount: number;
   servedClients: number;
+  lowStockCount: number;
   nextAppointment: any | null;
   recentServices: any[];
   todayAppointments: any[];
@@ -78,7 +80,9 @@ export default function StoreDashboard() {
     },
     {
       label: "Estoque e Produtos Baixo",
-      valor: "3 Itens",
+      valor: `${dashboard?.lowStockCount ?? 0} ${
+        (dashboard?.lowStockCount ?? 0) === 1 ? "Item" : "Itens"
+      }`,
       icone: AlertCircle,
       cor: "bg-zinc-100 text-zinc-600",
     },
@@ -172,7 +176,13 @@ export default function StoreDashboard() {
       <ShareLinkModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
-        storeSlug="lava-rapido-express"
+        storeSlug={
+          dashboard?.store?.name
+            ?.normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/\s+/g, "-")
+        }
       />
 
       <RegisterExpenseModal
@@ -249,16 +259,6 @@ export default function StoreDashboard() {
                       >
                         Ver Detalhes
                       </Button>
-
-                      {agendamento.status === "pending" && (
-                        <Button
-                          variant="outline"
-                          className="text-xs px-3 py-1.5 !rounded-md"
-                          onClick={() => setSelectedAppointmentId(agendamento.id)}
-                        >
-                          Avançar Status
-                        </Button>
-                      )}
                     </div>
                   </Card>
                 );

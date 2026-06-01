@@ -46,8 +46,21 @@ export default function Login() {
       const normalizedRole = rawRole === "store_owner" ? "store" : rawRole;
     
       navigate(ROLE_ROUTES[normalizedRole as keyof typeof ROLE_ROUTES]);
-    } catch (err) {
-      toastError(err instanceof Error ? err.message : "Erro ao fazer login.");
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const message = err?.response?.data?.message || err?.message;
+    
+      if (status === 401 || message?.toLowerCase().includes("credentials")) {
+        toastError("E-mail ou senha incorretos.");
+        return;
+      }
+    
+      if (status === 422) {
+        toastError("E-mail ou senha incorretos.");
+        return;
+      }    
+    
+      toastError("Erro ao fazer login. Tente novamente.");
     }
   };
 

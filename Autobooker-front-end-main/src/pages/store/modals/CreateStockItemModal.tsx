@@ -1,36 +1,74 @@
 import { useState } from "react";
+import api from "@/services/api";
 import { X } from "lucide-react";
 import Button from "@/components/ui/Button";
 
 interface CreateStockItemModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onCreated?: () => void | Promise<void>;
 }
 
 export default function CreateStockItemModal({
   isOpen,
   onClose,
+  onCreated,
 }: CreateStockItemModalProps) {
   const [itemName, setItemName] = useState("");
-  const [category, setCategory] = useState("insumo");
+  const [category, setCategory] = useState<"supply" | "product">("supply");
   const [unit, setUnit] = useState("un");
   const [currentStock, setCurrentStock] = useState("10");
   const [minimumStock, setMinimumStock] = useState("2");
+  const [salePrice, setSalePrice] = useState("");
   const [description, setDescription] = useState("");
+  const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  function resetForm() {
+    setItemName("");
+    setCategory("supply");
+    setUnit("un");
+    setCurrentStock("10");
+    setMinimumStock("2");
+    setSalePrice("");
+    setDescription("");
+  }
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    console.log({
-      itemName,
-      category,
-      unit,
-      currentStock,
-      minimumStock,
-      description,
-    });
-    onClose();
+
+    if (!itemName.trim()) {
+      alert("Informe o nome do item.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await api.post("/store/stock/items", {
+        name: itemName,
+        type: category,
+        quantity: Number(currentStock),
+        min_quantity: Number(minimumStock),
+        sale_price: category === "product" && salePrice ? Number(salePrice) : null,
+      });
+
+      alert("Item cadastrado com sucesso!");
+
+      resetForm();
+
+      if (onCreated) {
+        await onCreated();
+      }
+
+      onClose();
+    } catch (error: any) {
+      console.error("Erro ao cadastrar item:", error);
+      alert(error?.response?.data?.message || "Erro ao cadastrar item.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -46,6 +84,7 @@ export default function CreateStockItemModal({
           <h2 className="text-lg sm:text-xl font-black tracking-tight text-[#0B0B1A]">
             Cadastrar Novo Item
           </h2>
+
           <button
             type="button"
             onClick={onClose}
@@ -61,6 +100,7 @@ export default function CreateStockItemModal({
             <label className="block text-sm font-bold text-zinc-900 mb-2">
               Nome do Item *
             </label>
+
             <input
               type="text"
               value={itemName}
@@ -76,13 +116,16 @@ export default function CreateStockItemModal({
               <label className="block text-sm font-bold text-zinc-900 mb-2">
                 Categoria / Tipo de Uso *
               </label>
+
               <select
                 value={category}
-                onChange={(event) => setCategory(event.target.value)}
+                onChange={(event) =>
+                  setCategory(event.target.value as "supply" | "product")
+                }
                 className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
               >
-                <option value="insumo">Insumo (Uso Interno - Lavagem, etc)</option>
-                <option value="venda">Produto para Venda ao Cliente</option>
+                <option value="supply">Insumo (Uso Interno - Lavagem, etc)</option>
+                <option value="product">Produto para Venda ao Cliente</option>
               </select>
             </div>
 
@@ -90,6 +133,7 @@ export default function CreateStockItemModal({
               <label className="block text-sm font-bold text-zinc-900 mb-2">
                 Unidade de Medida
               </label>
+
               <select
                 value={unit}
                 onChange={(event) => setUnit(event.target.value)}
@@ -103,14 +147,16 @@ export default function CreateStockItemModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-bold text-zinc-900 mb-2">
                 Estoque Atual
               </label>
+
               <input
                 type="number"
                 value={currentStock}
+                min={0}
                 onChange={(event) => setCurrentStock(event.target.value)}
                 className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
               />
@@ -118,13 +164,32 @@ export default function CreateStockItemModal({
 
             <div>
               <label className="block text-sm font-bold text-zinc-900 mb-2">
-                Estoque Mínimo (Alerta)
+                Estoque Mínimo
               </label>
+
               <input
                 type="number"
                 value={minimumStock}
+                min={0}
                 onChange={(event) => setMinimumStock(event.target.value)}
                 className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-zinc-900 mb-2">
+                Preço de Venda
+              </label>
+
+              <input
+                type="number"
+                value={salePrice}
+                min={0}
+                step="0.01"
+                disabled={category !== "product"}
+                onChange={(event) => setSalePrice(event.target.value)}
+                placeholder={category === "product" ? "Ex: 12.90" : "Apenas venda"}
+                className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000] disabled:bg-zinc-100 disabled:text-zinc-400"
               />
             </div>
           </div>
@@ -133,11 +198,12 @@ export default function CreateStockItemModal({
             <label className="block text-sm font-bold text-zinc-900 mb-2">
               Descrição curta
             </label>
+
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               rows={3}
-              placeholder="Informações adicionais para o cliente ou estoque..."
+              placeholder="Informações adicionais para o estoque..."
               className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000] resize-none"
             />
           </div>
@@ -151,11 +217,13 @@ export default function CreateStockItemModal({
             >
               Cancelar
             </Button>
+
             <Button
               type="submit"
+              disabled={loading}
               className="!rounded-md !px-8 !py-2.5 text-base shadow-lg shadow-[#820000]/20"
             >
-              Cadastrar no Sistema
+              {loading ? "Cadastrando..." : "Cadastrar no Sistema"}
             </Button>
           </div>
         </form>
