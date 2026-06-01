@@ -1,19 +1,16 @@
 # AutoBooker Workspace
 
-Plataforma fullstack de agendamento e gestão para estéticas automotivas, desenvolvida com React, TypeScript, Laravel e PostgreSQL.
+Plataforma fullstack para gerenciamento e agendamento de serviços em estéticas automotivas, desenvolvida com React, TypeScript, Laravel e PostgreSQL.
 
 ---
 
 # Sobre o Projeto
 
-O AutoBooker é uma plataforma que conecta clientes e estéticas automotivas, permitindo agendamentos online, gerenciamento operacional da loja e acompanhamento completo dos serviços realizados.
+O AutoBooker é uma solução completa que conecta clientes e estéticas automotivas através de um marketplace digital.
 
-O sistema possui dois ambientes principais (ate o momento):
+A plataforma permite que clientes realizem agendamentos online, acompanhem seus serviços, participem de programas de fidelidade e adquiram produtos e pacotes promocionais.
 
-* Cliente
-* Lojista
-
-Toda a aplicação utiliza integração real entre frontend, backend e banco de dados PostgreSQL.
+Para os lojistas, o sistema oferece ferramentas de gestão operacional, controle de estoque, acompanhamento financeiro e gerenciamento completo dos serviços prestados.
 
 ---
 
@@ -26,93 +23,137 @@ Toda a aplicação utiliza integração real entre frontend, backend e banco de 
 * TailwindCSS
 * React Router
 * Context API
+* Vite
 
 ## Backend
 
-* Laravel
+* Laravel 10
 * PHP
-* Sanctum Authentication
+* Laravel Sanctum
+* API REST
 
 ## Banco de Dados
 
 * PostgreSQL
 
+## Metodologias
+
+* Scrum
+* Kanban
+
 ---
 
-# Estrutura do Projeto
+# Arquitetura
 
 ```txt
 AutobookerWorkspace/
-├── autobooker-api/      # Backend Laravel
-├── autobooker-front/    # Frontend React + TypeScript
+├── autobooker-api/            # Backend Laravel
+├── autobooker-front-end-main/ # Frontend React + TypeScript
 ```
 
+A comunicação entre frontend e backend ocorre através de APIs REST autenticadas utilizando Laravel Sanctum.
+
 ---
 
-# Funcionalidades
-
-## Cliente
+# Funcionalidades do Cliente
 
 * Cadastro e autenticação
-* Cadastro de veículos
-* Visualização de estéticas automotivas
-* Escolha de serviços
-* Carrinho de agendamento
-* Checkout completo
-* Histórico de serviços
 * Dashboard do cliente
-
-## Lojista
-
-* Dashboard operacional
-* Gestão de serviços
-* Agenda em tempo real
-* Controle de status dos agendamentos
-* Registro de despesas
-* Perfil completo da loja
-* Integração pública da estética para clientes
+* Cadastro de veículos
+* Marketplace de estéticas automotivas
+* Visualização de serviços disponíveis
+* Visualização de produtos disponíveis
+* Compra de pacotes promocionais
+* Carrinho de compras
+* Checkout integrado
+* Histórico de agendamentos
+* Programa de fidelidade
+* Acompanhamento dos serviços realizados
 
 ---
 
-# Funcionalidades Implementadas
+# Funcionalidades do Lojista
 
-## Backend
+* Dashboard operacional
+* Agenda de serviços
+* Controle de status dos agendamentos
+* Cadastro de clientes
+* Gestão de serviços
+* Gestão de produtos
+* Controle de estoque
+* Movimentação de estoque
+* Histórico de movimentações
+* Gestão de pacotes promocionais
+* Programa de fidelidade configurável
+* Cadastro de recompensas
+* Controle de despesas
+* Perfil da loja
+* Compartilhamento do link público da loja
 
-* Laravel + PostgreSQL
-* Sanctum Authentication
-* Middleware de roles
-* APIs REST
-* CRUD de serviços
+---
+
+# Funcionalidades Backend
+
+* Autenticação com Sanctum
+* Controle de permissões por Role
 * CRUD de veículos
+* CRUD de serviços
 * CRUD de agendamentos
+* CRUD de estoque
+* CRUD de produtos
+* CRUD de pacotes
+* CRUD de clientes da loja
+* Sistema de fidelidade
+* Sistema de recompensas
+* Dashboard do cliente
 * Dashboard do lojista
 * Perfil da loja
-* Despesas operacionais
+* Relacionamentos completos entre entidades
 
-## Frontend
+---
 
-* Integração completa com APIs
-* Carrinho global
-* Checkout funcional
-* Agenda dinâmica
-* Histórico do cliente
-* Dashboard do lojista
-* Perfil dinâmico da loja
-* Store Detail com dados reais
+# Modelos Principais
+
+* User
+* Store
+* Vehicle
+* Service
+* Appointment
+* StockItem
+* StockMovement
+* Package
+* LoyaltyPoint
+* LoyaltyReward
+* LoyaltyRedemption
+* LoyaltySetting
+* Expense
 
 ---
 
 # Status do Projeto
 
-Projeto em desenvolvimento ativo.
+## Concluído
 
-Atualmente o sistema possui:
+### Cliente
 
-* fluxo completo de agendamento
-* integração frontend/backend
-* persistência real de dados
-* dashboards operacionais
-* controle de serviços e agenda
+* Concluído
+
+### Lojista
+
+* Concluído
+
+## Em Desenvolvimento
+
+### Painel Administrativo (Admin)
+
+Funcionalidades planejadas:
+
+* Gestão global de usuários
+* Gestão global de lojas
+* Aprovação e bloqueio de contas
+* Relatórios administrativos
+* Monitoramento da plataforma
+* Indicadores gerais do sistema
 
 ---
 
@@ -134,8 +175,6 @@ php artisan migrate
 php artisan serve
 ```
 
----
-
 ## Frontend
 
 ```bash
@@ -150,10 +189,22 @@ npm run dev
 
 # Equipe
 
-Projeto desenvolvido pela equipe AutoBooker.
+Projeto desenvolvido pela equipe AutoBooker como atividade acadêmica do curso de Sistemas de Informação.
 
 ---
 
-# Observações
+# Próximas Implementações
 
-Este projeto foi desenvolvido para fins acadêmicos e evolução prática em arquitetura fullstack, APIs REST, React, Laravel e PostgreSQL.
+* Painel Administrativo
+* Relatórios avançados
+* Gestão completa de Pacotes VIP
+* Controle de sessões utilizadas por pacote
+* Controle de validade dos pacotes
+* Registro financeiro consolidado
+* Dashboard administrativo
+
+---
+
+# Licença
+
+Projeto acadêmico desenvolvido para fins educacionais e de aprendizado prático em desenvolvimento Full Stack, APIs REST, React, Laravel e PostgreSQL.
