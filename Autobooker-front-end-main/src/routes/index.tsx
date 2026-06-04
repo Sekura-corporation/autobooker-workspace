@@ -8,6 +8,7 @@ import Login from "@/pages/auth/Login";
 import Register from "@/pages/auth/Register";
 import RecoverEmail from "@/pages/auth/RecoverEmail";
 import RecoverCode from "@/pages/auth/RecoverCode";
+import NewPassword from "@/pages/auth/NewPassword";
 import SuccessState from "@/pages/auth/SuccessState";
 
 // M�dulos
@@ -26,6 +27,7 @@ export default function AppRoutes() {
       <Route path="/cadastro" element={<Register />} />
       <Route path="/recuperar-email" element={<RecoverEmail />} />
       <Route path="/recuperar-codigo" element={<RecoverCode />} />
+      <Route path="/nova-senha" element={<NewPassword />} />
       <Route
         path="/sucesso/cadastro"
         element={<SuccessState type="register" />}

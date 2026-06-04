@@ -26,6 +26,10 @@ Route::prefix('auth')->group(function () {
     Route::post('/register-store-owner', [AuthController::class, 'registerStoreOwner']);
     Route::post('/login', [AuthController::class, 'login']);
 
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('/verify-code', [AuthController::class, 'verifyCode']);
+    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
