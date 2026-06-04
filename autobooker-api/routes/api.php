@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ProfileAvatarController;
 use App\Http\Controllers\Api\StoreController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\StoreServiceController;
@@ -33,6 +34,8 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
+        Route::post('/avatar', [ProfileAvatarController::class, 'store']);
+        Route::delete('/avatar', [ProfileAvatarController::class, 'destroy']);
     });
 });
 

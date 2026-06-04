@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import { X } from "lucide-react";
 import Button from "@/components/ui/Button";
 import api from "@/services/api";
@@ -26,7 +27,7 @@ export default function RegisterExpenseModal({
         category: categoria,
       });
   
-      alert("Despesa registrada com sucesso!");
+      toast.success("Despesa registrada com sucesso!");
   
       setMotivo("");
       setValor("");
@@ -36,7 +37,7 @@ export default function RegisterExpenseModal({
     } catch (error) {
       console.error("Erro ao registrar despesa:", error);
   
-      alert("Erro ao registrar despesa.");
+      toast.error("Erro ao registrar despesa.");
     }
   }
 

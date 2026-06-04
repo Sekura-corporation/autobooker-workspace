@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/shared/PageHeader";
 import Card from "@/components/ui/Card";
@@ -136,7 +137,7 @@ export default function StoreAgenda() {
       setAppointments(normalized);
     } catch (error) {
       console.error("Erro ao carregar agenda:", error);
-      alert("Erro ao carregar agenda do lojista.");
+      toast.error("Erro ao carregar agenda do lojista.");
     } finally {
       setLoading(false);
     }
@@ -170,7 +171,7 @@ export default function StoreAgenda() {
       navigate(`/loja/agenda/${appointmentId}`);
     } catch (error) {
       console.error("Erro ao atualizar status:", error);
-      alert("Erro ao atualizar status do agendamento.");
+      toast.error("Erro ao atualizar status do agendamento.");
     }
   };
 

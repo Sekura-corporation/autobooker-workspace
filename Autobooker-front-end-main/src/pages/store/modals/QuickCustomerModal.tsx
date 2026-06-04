@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import api from "@/services/api";
 import { X } from "lucide-react";
 import Button from "@/components/ui/Button";
@@ -25,7 +26,7 @@ export default function QuickCustomerModal({
     event.preventDefault();
   
     if (!name || !phone) {
-      alert("Informe nome e telefone.");
+      toast.error("Informe nome e telefone.");
       return;
     }
   
@@ -38,7 +39,7 @@ export default function QuickCustomerModal({
         plate,
       });
   
-      alert("Cliente cadastrado com sucesso!");
+      toast.success("Cliente cadastrado com sucesso!");
   
       setName("");
       setPhone("");
@@ -51,7 +52,7 @@ export default function QuickCustomerModal({
       onClose();
     } catch (error: any) {
       console.error("Erro ao cadastrar cliente:", error);
-      alert(error?.response?.data?.message || "Erro ao cadastrar cliente.");
+      toast.error(error?.response?.data?.message || "Erro ao cadastrar cliente.");
     } finally {
       setLoading(false);
     }

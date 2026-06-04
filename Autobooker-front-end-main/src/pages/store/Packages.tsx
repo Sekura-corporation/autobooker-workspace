@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import api from "@/services/api";
 import PageHeader from "@/components/shared/PageHeader";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import NewPackageModal from "./modals/NewPackageModal";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 interface ServicePackage {
   id: number;
@@ -22,6 +24,7 @@ export default function StorePackages() {
     null,
   );
   const [loading, setLoading] = useState(true);
+  const [packageToDelete, setPackageToDelete] = useState<number | null>(null);
 
   useEffect(() => {
     loadPackages();
@@ -36,7 +39,7 @@ export default function StorePackages() {
       setPackages(data.data || []);
     } catch (error) {
       console.error("Erro ao carregar pacotes:", error);
-      alert("Erro ao carregar pacotes.");
+      toast.error("Erro ao carregar pacotes.");
     } finally {
       setLoading(false);
     }
@@ -61,20 +64,18 @@ export default function StorePackages() {
     setIsNewPackageModalOpen(true);
   }
 
-  async function handleDeletePackage(id: number) {
-    const confirmed = confirm("Tem certeza que deseja excluir este pacote?");
-
-    if (!confirmed) return;
+  async function confirmDeletePackage() {
+    if (packageToDelete === null) return;
 
     try {
-      await api.delete(`/store/packages/${id}`);
-
-      alert("Pacote excluído com sucesso!");
-
+      await api.delete(`/store/packages/${packageToDelete}`);
+      toast.success("Pacote excluído com sucesso!");
       await loadPackages();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro ao excluir pacote:", error);
-      alert(error?.response?.data?.message || "Erro ao excluir pacote.");
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || "Erro ao excluir pacote.");
+      throw error;
     }
   }
 
@@ -177,7 +178,7 @@ export default function StorePackages() {
 
                           <Button
                             variant="outline"
-                            onClick={() => handleDeletePackage(pkg.id)}
+                            onClick={() => setPackageToDelete(pkg.id)}
                             className="!rounded-md !py-1.5 !px-5 text-sm font-bold !text-red-600 !border-red-600 hover:!bg-red-50"
                           >
                             Excluir
@@ -198,6 +199,16 @@ export default function StorePackages() {
         title={modalTitle}
         initialData={selectedPackage}
         onSaved={loadPackages}
+      />
+
+      <ConfirmDialog
+        isOpen={packageToDelete !== null}
+        onClose={() => setPackageToDelete(null)}
+        onConfirm={confirmDeletePackage}
+        title="Excluir pacote"
+        message="Tem certeza que deseja excluir este pacote? Essa ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        variant="danger"
       />
     </div>
   );

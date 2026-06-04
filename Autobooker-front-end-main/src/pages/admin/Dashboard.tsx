@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -110,7 +111,7 @@ Lojas Pendentes,${reportData.pendingStores}`;
   };
 
   const handleExportPDF = () => {
-    alert("Exportar em PDF ativado! (Implementar com biblioteca PDF)");
+    toast.success("Exportar em PDF ativado! (Implementar com biblioteca PDF)");
   };
 
   const handleAnalisarCadastro = () => {

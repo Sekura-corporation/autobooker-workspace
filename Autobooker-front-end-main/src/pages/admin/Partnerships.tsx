@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import {
   Plus,
   Filter,
@@ -262,7 +263,7 @@ export default function AdminPartnerships() {
       !formData.contactPhone ||
       !formData.discountPercent
     ) {
-      alert("Preencha os campos obrigatórios da parceria.");
+      toast.error("Preencha os campos obrigatórios da parceria.");
       return;
     }
 

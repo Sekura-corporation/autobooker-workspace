@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import api from "@/services/api";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -37,7 +38,7 @@ export default function StoreLoyalty() {
       setRewards(data.data.rewards || []);
     } catch (error) {
       console.error(error);
-      alert("Erro ao carregar programa de fidelidade.");
+      toast.error("Erro ao carregar programa de fidelidade.");
     } finally {
       setLoading(false);
     }
@@ -53,10 +54,10 @@ export default function StoreLoyalty() {
         points_value: Number(pointsValue),
       });
   
-      alert("Regra atualizada com sucesso!");
+      toast.success("Regra atualizada com sucesso!");
     } catch (error) {
       console.error(error);
-      alert("Erro ao atualizar regra.");
+      toast.error("Erro ao atualizar regra.");
     }
   };
 
@@ -76,7 +77,7 @@ export default function StoreLoyalty() {
       await loadLoyalty();
     } catch (error) {
       console.error("Erro ao alterar status da recompensa:", error);
-      alert("Erro ao alterar status da recompensa.");
+      toast.error("Erro ao alterar status da recompensa.");
     }
   };
 

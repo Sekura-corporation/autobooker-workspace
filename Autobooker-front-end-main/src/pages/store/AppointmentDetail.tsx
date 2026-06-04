@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   User,
@@ -74,7 +75,7 @@ export default function StoreAppointmentDetail() {
       setInternalNotes(data?.notes ?? "");
     } catch (error) {
       console.error("Erro ao carregar detalhes:", error);
-      alert("Erro ao carregar detalhes do agendamento.");
+      toast.error("Erro ao carregar detalhes do agendamento.");
     } finally {
       setLoading(false);
     }
@@ -93,7 +94,7 @@ export default function StoreAppointmentDetail() {
       await loadDetail();
     } catch (error) {
       console.error("Erro ao atualizar status:", error);
-      alert("Erro ao atualizar status do agendamento.");
+      toast.error("Erro ao atualizar status do agendamento.");
     }
   }
 

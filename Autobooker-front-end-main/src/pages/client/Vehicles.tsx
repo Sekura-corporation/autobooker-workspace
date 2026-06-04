@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import { listVehicles, createVehicle, deleteVehicle, updateVehicle } from "@/services/vehicles.service";
 import { useEffect } from "react";
 import Card from "@/components/ui/Card";
@@ -90,7 +91,7 @@ export default function ClientVehicles() {
       !formData.color ||
       !formData.plate
     ) {
-      alert("Preencha todos os campos");
+      toast.error("Preencha todos os campos");
       return;
     }
   
@@ -124,9 +125,9 @@ export default function ClientVehicles() {
       console.error("Status:", error?.response?.status);
       console.error("Resposta da API:", error?.response?.data);
     
-      alert(
+      toast.error(
         error?.response?.data?.message ||
-        "Erro ao salvar veículo."
+        "Erro ao salvar veículo.",
       );
     }
   };

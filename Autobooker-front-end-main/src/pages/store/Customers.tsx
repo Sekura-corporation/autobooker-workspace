@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import api from "@/services/api";
 import PageHeader from "@/components/shared/PageHeader";
 import Card from "@/components/ui/Card";
@@ -35,7 +36,7 @@ export default function StoreCustomers() {
       setCustomers(response.data.data || []);
     } catch (error) {
       console.error("Erro ao carregar clientes:", error);
-      alert("Erro ao carregar clientes da loja.");
+      toast.error("Erro ao carregar clientes da loja.");
     } finally {
       setLoading(false);
     }

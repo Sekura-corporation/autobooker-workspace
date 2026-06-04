@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import api from "@/services/api";
 import Button from "@/components/ui/Button";
 
@@ -57,7 +58,7 @@ export default function NewPackageModal({
     event.preventDefault();
 
     if (!packageName.trim()) {
-      alert("Informe o nome do pacote.");
+      toast.error("Informe o nome do pacote.");
       return;
     }
 
@@ -74,10 +75,10 @@ export default function NewPackageModal({
 
       if (initialData?.id) {
         await api.put(`/store/packages/${initialData.id}`, payload);
-        alert("Pacote atualizado com sucesso!");
+        toast.success("Pacote atualizado com sucesso!");
       } else {
         await api.post("/store/packages", payload);
-        alert("Pacote criado com sucesso!");
+        toast.success("Pacote criado com sucesso!");
       }
 
       if (onSaved) {
@@ -87,7 +88,7 @@ export default function NewPackageModal({
       onClose();
     } catch (error: any) {
       console.error("Erro ao salvar pacote:", error);
-      alert(error?.response?.data?.message || "Erro ao salvar pacote.");
+      toast.error(error?.response?.data?.message || "Erro ao salvar pacote.");
     } finally {
       setLoading(false);
     }

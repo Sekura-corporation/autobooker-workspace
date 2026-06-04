@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import { updateAppointmentStatus } from "@/services/appointments.service";
 import { useEffect } from "react";
 import { listAppointments } from "@/services/appointments.service";
@@ -142,7 +143,7 @@ export default function ClientAppointments() {
       );
     } catch (error) {
       console.error("Erro ao cancelar agendamento", error);
-      alert("Erro ao cancelar agendamento");
+      toast.error("Erro ao cancelar agendamento");
     }
   };
 
@@ -349,6 +350,7 @@ export default function ClientAppointments() {
           </div>
         </div>
       )}
+
       {/* HISTÓRICO RECENTE */}
       {completedAppointments.length > 0 && (
         <div className="mt-12">

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import toast from "react-hot-toast";
 import Button from "@/components/ui/Button";
 import api from "@/services/api";
 
@@ -80,7 +81,7 @@ export default function NewRewardModal({
         await api.patch(`/store/loyalty/rewards/${savedReward.id}/toggle`);
       }
   
-      alert(initialData ? "Recompensa atualizada!" : "Recompensa criada!");
+      toast.success(initialData ? "Recompensa atualizada!" : "Recompensa criada!");
   
       if (onSaved) {
         onSaved();
@@ -89,7 +90,7 @@ export default function NewRewardModal({
       onClose();
     } catch (error: any) {
       console.error("Erro ao salvar recompensa:", error);
-      alert(error?.response?.data?.message || "Erro ao salvar recompensa.");
+      toast.error(error?.response?.data?.message || "Erro ao salvar recompensa.");
     }
   };
 

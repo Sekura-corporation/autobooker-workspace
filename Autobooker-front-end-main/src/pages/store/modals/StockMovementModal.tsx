@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import api from "@/services/api";
 import { X } from "lucide-react";
 
@@ -30,7 +31,7 @@ export default function StockMovementModal({
     if (!item) return;
 
     if (!quantity || Number(quantity) <= 0) {
-      alert("Informe uma quantidade válida.");
+      toast.error("Informe uma quantidade válida.");
       return;
     }
 
@@ -43,7 +44,7 @@ export default function StockMovementModal({
         reason,
       });
 
-      alert("Movimentação registrada com sucesso.");
+      toast.success("Movimentação registrada com sucesso.");
 
       setQuantity("");
       setReason("");
@@ -56,9 +57,9 @@ export default function StockMovementModal({
     } catch (error: any) {
       console.error(error);
 
-      alert(
+      toast.error(
         error?.response?.data?.message ||
-          "Erro ao registrar movimentação."
+          "Erro ao registrar movimentação.",
       );
     } finally {
       setLoading(false);

@@ -40,26 +40,38 @@ export default function Login() {
     }
 
     try {
-      const user = await login(email, password);
-    
+      const user = await login(email.trim(), password);
+
       const rawRole = user.role as string;
       const normalizedRole = rawRole === "store_owner" ? "store" : rawRole;
-    
+
       navigate(ROLE_ROUTES[normalizedRole as keyof typeof ROLE_ROUTES]);
-    } catch (err: any) {
-      const status = err?.response?.status;
-      const message = err?.response?.data?.message || err?.message;
-    
-      if (status === 401 || message?.toLowerCase().includes("credentials")) {
-        toastError("E-mail ou senha incorretos.");
+    } catch (err: unknown) {
+      const error = err as {
+        response?: {
+          status?: number;
+          data?: {
+            message?: string;
+            errors?: Record<string, string[]>;
+          };
+        };
+      };
+
+      const status = error.response?.status;
+      const apiMessage = error.response?.data?.message;
+      const fieldError =
+        error.response?.data?.errors?.email?.[0] ??
+        error.response?.data?.errors?.password?.[0];
+
+      if (
+        status === 401 ||
+        status === 422 ||
+        apiMessage?.toLowerCase().includes("credenciais")
+      ) {
+        toastError(fieldError ?? "E-mail ou senha incorretos.");
         return;
       }
-    
-      if (status === 422) {
-        toastError("E-mail ou senha incorretos.");
-        return;
-      }    
-    
+
       toastError("Erro ao fazer login. Tente novamente.");
     }
   };
