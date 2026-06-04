@@ -31,6 +31,8 @@ export type ApiStoreRecord = ServiceRecord & {
   email?: string | null;
   openingHours?: string | null;
   opening_hours?: string | null;
+  logo_url?: string | null;
+  banner_url?: string | null;
 };
 
 export type ApiStoreServiceRecord = ServiceRecord & {

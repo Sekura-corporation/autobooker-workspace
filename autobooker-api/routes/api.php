@@ -42,6 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/store/expenses', [StoreExpenseController::class, 'store']);
         Route::get('/store/profile', [StoreProfileController::class, 'show']);
         Route::put('/store/profile', [StoreProfileController::class, 'update']);
+        Route::post('/store/profile/upload', [StoreProfileController::class, 'uploadImages']);
 
         Route::get('/store/services', [StoreServiceController::class, 'index']);
         Route::post('/store/services', [StoreServiceController::class, 'store']);

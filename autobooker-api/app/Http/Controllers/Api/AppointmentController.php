@@ -31,7 +31,7 @@ class AppointmentController extends Controller
             ->limit(max(1, min($limit, 200)))
             ->get();
 
-        return response()->json($appointments->map(fn (Appointment $a) => $this->appointmentJson($a)));
+        return response()->json($appointments->map(fn(Appointment $a) => $this->appointmentJson($a)));
     }
 
     public function store(Request $request)
@@ -91,7 +91,7 @@ class AppointmentController extends Controller
 
         if (array_key_exists('scheduledAt', $validated)) {
             $scheduled = Carbon::parse($validated['scheduledAt']);
-            $appointment->appointment_date = $scheduled;
+            $appointment->appointment_date = $scheduled->toDateString();
             $appointment->appointment_time = $scheduled->format('H:i:s');
         }
 
@@ -125,14 +125,6 @@ class AppointmentController extends Controller
             $scheduledAt = Carbon::parse($date . ' ' . $time)->format('Y-m-d\TH:i:s');
         }
 
-        $setting = \App\Models\LoyaltySetting::where('store_id', $appointment->store_id)->first();
-        $spentValue = $setting ? (float) $setting->spent_value : 1.0;
-        $pointsValue = $setting ? (int) $setting->points_value : 1;
-        $price = $appointment->price !== null
-            ? (float) $appointment->price
-            : (float) (optional($appointment->service)->price ?? 0);
-        $loyaltyPoints = (int) floor(($price / max(1.0, $spentValue)) * $pointsValue);
-
         return [
             'id' => (string) $appointment->id,
             'customerId' => (string) $appointment->client_id,
@@ -142,7 +134,6 @@ class AppointmentController extends Controller
             'scheduledAt' => $scheduledAt,
             'status' => $appointment->status,
             'storePhone' => optional($appointment->store->owner)->phone ?? optional($appointment->store)->phone,
-            'loyaltyPoints' => $loyaltyPoints,
 
             'storeName' => optional($appointment->store)->name ?? 'Loja selecionada',
             'service' => optional($appointment->service)->name ?? 'Serviço agendado',

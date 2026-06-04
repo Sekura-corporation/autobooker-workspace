@@ -61,7 +61,7 @@ function mapApiStoreToRow(
     rating: 0,
     reviews: 0,
     services: serviceNames.length ? serviceNames : ["Ver serviços na loja"],
-    image: pickString(raw.image),
+    image: pickString(raw.logo_url) ?? pickString(raw.image),
   };
 }
 
