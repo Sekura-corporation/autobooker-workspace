@@ -28,7 +28,7 @@ export interface PasswordRecoveryConfirmPayload {
   email: string;
   code: string;
   password: string;
-    password_confirmation: string;
+  password_confirmation: string;
 }
 
 export async function login(payload: LoginPayload): Promise<AuthSession> {
@@ -89,7 +89,7 @@ export async function confirmPasswordRecovery(
   return data;
 }
 
-const authServic  e = {
+const authService = { 
   login,
   register,
   me,
