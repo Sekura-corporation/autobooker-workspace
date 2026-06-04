@@ -32,29 +32,29 @@ class StoreAppointmentController extends Controller
             ->get();
 
         return response()->json(
-            $appointments->map(fn (Appointment $appointment) => $this->appointmentJson($appointment))
+            $appointments->map(fn(Appointment $appointment) => $this->appointmentJson($appointment))
         );
     }
 
 
     public function show(Request $request, Appointment $appointment)
     {
-    $storeIds = Store::where('owner_id', $request->user()->id)->pluck('id');
+        $storeIds = Store::where('owner_id', $request->user()->id)->pluck('id');
 
-    if (! $storeIds->contains($appointment->store_id)) {
-        return response()->json(['message' => 'Acesso negado.'], 403);
+        if (!$storeIds->contains($appointment->store_id)) {
+            return response()->json(['message' => 'Acesso negado.'], 403);
+        }
+
+        $appointment->loadMissing(['store', 'service', 'vehicle', 'client']);
+
+        return response()->json($this->appointmentJson($appointment));
     }
 
-    $appointment->loadMissing(['store', 'service', 'vehicle', 'client']);
-
-    return response()->json($this->appointmentJson($appointment));
-    }
-    
     public function updateStatus(Request $request, Appointment $appointment)
     {
         $storeIds = Store::where('owner_id', $request->user()->id)->pluck('id');
 
-        if (! $storeIds->contains($appointment->store_id)) {
+        if (!$storeIds->contains($appointment->store_id)) {
             return response()->json(['message' => 'Acesso negado.'], 403);
         }
 
@@ -77,13 +77,13 @@ class StoreAppointmentController extends Controller
                     'points_value' => 1,
                 ]
             );
-        
+
             $price = (float) ($appointment->price ?? 0);
-        
+
             $points = (int) floor(
                 ($price / max(1, $setting->spent_value)) * $setting->points_value
             );
-        
+
             if ($points > 0) {
                 $loyalty = LoyaltyPoint::firstOrCreate(
                     [
@@ -94,7 +94,7 @@ class StoreAppointmentController extends Controller
                         'points' => 0,
                     ]
                 );
-        
+
                 $loyalty->increment('points', $points);
             }
         }
@@ -111,7 +111,7 @@ class StoreAppointmentController extends Controller
         if ($appointment->appointment_date && $appointment->appointment_time) {
             $date = Carbon::parse($appointment->appointment_date)->toDateString();
             $time = Carbon::parse($appointment->appointment_time)->format('H:i:s');
-            $scheduledAt = Carbon::parse($date . ' ' . $time)->toISOString();
+            $scheduledAt = Carbon::parse($date . ' ' . $time)->format('Y-m-d\TH:i:s');
         }
 
         $durationMinutes =
@@ -194,7 +194,7 @@ class StoreAppointmentController extends Controller
         $vehicle = \App\Models\Vehicle::where('id', $data['vehicle_id'])
             ->where('client_id', $client->id)
             ->first();
-    
+
         if (!$vehicle) {
             return response()->json([
                 'success' => false,
@@ -202,7 +202,7 @@ class StoreAppointmentController extends Controller
             ], 422);
         }
 
-        $alreadyBooked = \App\Models\Appointment::where('store_id', $store->id)
+        $alreadyBooked = Appointment::where('store_id', $store->id)
             ->whereDate('appointment_date', $data['appointment_date'])
             ->where('appointment_time', $data['appointment_time'])
             ->whereIn('status', ['pending', 'inProgress', 'waiting', 'in_progress'])
@@ -215,7 +215,7 @@ class StoreAppointmentController extends Controller
             ], 422);
         }
 
-        $appointment = \App\Models\Appointment::create([
+        $appointment = Appointment::create([
             'client_id' => $client->id,
             'store_id' => $store->id,
             'vehicle_id' => $vehicle->id,
