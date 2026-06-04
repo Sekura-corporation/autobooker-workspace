@@ -28,6 +28,7 @@ export interface PasswordRecoveryConfirmPayload {
   email: string;
   code: string;
   password: string;
+  password_confirmation: string;
 }
 
 export async function login(payload: LoginPayload): Promise<AuthSession> {
@@ -86,8 +87,19 @@ export async function requestPasswordRecovery(
   payload: PasswordRecoveryRequestPayload,
 ): Promise<{ message: string }> {
   const { data } = await api.post<{ message: string }>(
-    "/auth/recover",
+    "/auth/forgot-password",
     payload,
+  );
+  return data;
+}
+
+export async function verifyPasswordRecoveryCode(
+  email: string,
+  code: string,
+): Promise<{ message: string }> {
+  const { data } = await api.post<{ message: string }>(
+    "/auth/verify-code",
+    { email, code },
   );
   return data;
 }
@@ -96,13 +108,13 @@ export async function confirmPasswordRecovery(
   payload: PasswordRecoveryConfirmPayload,
 ): Promise<{ message: string }> {
   const { data } = await api.post<{ message: string }>(
-    "/auth/recover/confirm",
+    "/auth/reset-password",
     payload,
   );
   return data;
 }
 
-const authService = {
+const authService = { 
   login,
   register,
   me,
@@ -110,6 +122,7 @@ const authService = {
   uploadAvatar,
   removeAvatar,
   requestPasswordRecovery,
+  verifyPasswordRecoveryCode,
   confirmPasswordRecovery,
 };
 

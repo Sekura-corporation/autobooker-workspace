@@ -80,6 +80,8 @@ class StoreController extends Controller
         'zip_code' => $store->zip_code,
         'description' => $store->description,
         'opening_hours' => $store->opening_hours,
+        'logo_url' => $store->logo_url,
+        'banner_url' => $store->banner_url,
 
         'createdAt' => $store->created_at ? $store->created_at->toISOString() : null,
         'updatedAt' => $store->updated_at ? $store->updated_at->toISOString() : null,

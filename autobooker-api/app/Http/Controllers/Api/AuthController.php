@@ -9,6 +9,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\PasswordRecoveryMail;
+use Carbon\Carbon;
 
 class AuthController extends Controller
 {
@@ -135,6 +138,80 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Logout realizado com sucesso'
         ]);
+    }
+
+    public function forgotPassword(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            throw ValidationException::withMessages([
+                'email' => ['E-mail não encontrado em nossa base de dados.'],
+            ]);
+        }
+
+        $code = rand(100000, 999999);
+
+        DB::table('password_reset_tokens')->updateOrInsert(
+            ['email' => $user->email],
+            [
+                'token' => $code, // usando token column para os 6 dígitos
+                'created_at' => Carbon::now()
+            ]
+        );
+
+        Mail::to($user->email)->send(new PasswordRecoveryMail($code));
+
+        return response()->json(['message' => 'Código de recuperação enviado.'], 200);
+    }
+
+    public function verifyCode(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'code' => 'required|numeric|digits:6',
+        ]);
+
+        $record = DB::table('password_reset_tokens')
+            ->where('email', $request->email)
+            ->where('token', $request->code)
+            ->first();
+
+        if (!$record || Carbon::parse($record->created_at)->addMinutes(15)->isPast()) {
+            return response()->json(['message' => 'Código inválido ou expirado.'], 400);
+        }
+
+        return response()->json(['message' => 'Código válido.'], 200);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'code' => 'required|numeric|digits:6',
+            'password' => 'required|min:6|confirmed',
+        ]);
+
+        $record = DB::table('password_reset_tokens')
+            ->where('email', $request->email)
+            ->where('token', $request->code)
+            ->first();
+
+        if (!$record || Carbon::parse($record->created_at)->addMinutes(15)->isPast()) {
+            return response()->json(['message' => 'Código inválido ou expirado.'], 400);
+        }
+
+        $user = User::where('email', $request->email)->first();
+        if ($user) {
+            $user->password = Hash::make($request->password);
+            $user->save();
+        }
+
+        DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+
+        return response()->json(['message' => 'Senha alterada com sucesso.'], 200);
     }
 
     private function userJson(User $user): array

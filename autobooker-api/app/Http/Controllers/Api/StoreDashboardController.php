@@ -36,7 +36,20 @@ class StoreDashboardController extends Controller
         $todayAppointments = Appointment::with(['client', 'vehicle', 'service'])
             ->where('store_id', $store->id)
             ->whereDate('appointment_date', now()->toDateString())
+            ->whereIn('status', ['pending', 'waiting', 'in_progress'])
+            ->orderBy('appointment_time')
             ->get();
+
+        if ($todayAppointments->isEmpty()) {
+            $todayAppointments = Appointment::with(['client', 'vehicle', 'service'])
+                ->where('store_id', $store->id)
+                ->whereDate('appointment_date', '>', now()->toDateString())
+                ->whereIn('status', ['pending', 'waiting', 'in_progress'])
+                ->orderBy('appointment_date')
+                ->orderBy('appointment_time')
+                ->limit(5)
+                ->get();
+        }
 
         $monthlyRevenue = Appointment::where('store_id', $store->id)
             ->where('status', 'completed')

@@ -31,7 +31,7 @@ class AppointmentController extends Controller
             ->limit(max(1, min($limit, 200)))
             ->get();
 
-        return response()->json($appointments->map(fn (Appointment $a) => $this->appointmentJson($a)));
+        return response()->json($appointments->map(fn(Appointment $a) => $this->appointmentJson($a)));
     }
 
     public function store(Request $request)
@@ -114,7 +114,7 @@ class AppointmentController extends Controller
 
     private function appointmentJson(Appointment $appointment): array
     {
-        $appointment->loadMissing(['store', 'vehicle', 'service']);
+        $appointment->loadMissing(['store.owner', 'vehicle', 'service']);
 
         $scheduledAt = null;
 
@@ -122,7 +122,7 @@ class AppointmentController extends Controller
             $date = Carbon::parse($appointment->appointment_date)->toDateString();
             $time = Carbon::parse($appointment->appointment_time)->format('H:i:s');
 
-            $scheduledAt = Carbon::parse($date . ' ' . $time)->toISOString();
+            $scheduledAt = Carbon::parse($date . ' ' . $time)->format('Y-m-d\TH:i:s');
         }
 
         return [
@@ -133,6 +133,7 @@ class AppointmentController extends Controller
             'serviceId' => (string) $appointment->service_id,
             'scheduledAt' => $scheduledAt,
             'status' => $appointment->status,
+            'storePhone' => optional($appointment->store->owner)->phone ?? optional($appointment->store)->phone,
 
             'storeName' => optional($appointment->store)->name ?? 'Loja selecionada',
             'service' => optional($appointment->service)->name ?? 'Serviço agendado',

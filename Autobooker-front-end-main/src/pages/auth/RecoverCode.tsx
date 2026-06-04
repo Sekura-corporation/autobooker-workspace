@@ -1,12 +1,17 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/useToast";
 import { AuthLayout } from "../../components/layout/AuthLayout";
+import authService from "@/services/auth.service";
 
 export default function RecoverCode() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const email = location.state?.email;
+
   const { error: toastError, success: toastSuccess } = useToast();
   const [code, setCode] = useState(["", "", "", "", "", ""]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const codeValue = useMemo(() => code.join(""), [code]);
 
@@ -17,16 +22,46 @@ export default function RecoverCode() {
       next[index] = nextValue;
       return next;
     });
+
+    // Auto-focus next input logic can be added here if desired
   };
 
-  const handleSubmit = () => {
+  const handleResend = async () => {
+    if (!email) {
+      toastError("E-mail não encontrado. Retorne à etapa anterior.");
+      return;
+    }
+    
+    try {
+      await authService.requestPasswordRecovery({ email });
+      toastSuccess("Código reenviado para o e-mail.");
+    } catch (error) {
+      toastError("Erro ao reenviar código.");
+    }
+  };
+
+  const handleSubmit = async () => {
     if (codeValue.length !== 6) {
       toastError("Digite o código completo de 6 dígitos.");
       return;
     }
 
-    toastSuccess("Código validado com sucesso.");
-    navigate("/sucesso/senha");
+    if (!email) {
+      toastError("E-mail não encontrado. Retorne à etapa anterior.");
+      navigate("/recuperar-email");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await authService.verifyPasswordRecoveryCode(email, codeValue);
+      toastSuccess("Código validado com sucesso.");
+      navigate("/nova-senha", { state: { email, code: codeValue } });
+    } catch (error) {
+      toastError("Código inválido ou expirado.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -50,16 +85,24 @@ export default function RecoverCode() {
       </div>
       <button
         onClick={handleSubmit}
-        className="w-full py-4 bg-red-800 hover:bg-red-700 text-white rounded-xl font-semibold transition-all shadow-lg shadow-red-900/20"
+        disabled={isLoading}
+        className="w-full py-4 bg-red-800 hover:bg-red-700 text-white rounded-xl font-semibold transition-all shadow-lg shadow-red-900/20 disabled:opacity-50"
       >
-        Confirmar código
+        {isLoading ? "Validando..." : "Confirmar código"}
+      </button>
+      <button
+        type="button"
+        onClick={handleResend}
+        className="w-full mt-6 text-zinc-500 text-xs hover:text-white transition-colors"
+      >
+        Reenviar código
       </button>
       <button
         type="button"
         onClick={() => navigate("/recuperar-email")}
-        className="w-full mt-6 text-zinc-500 text-xs hover:text-white transition-colors"
+        className="w-full mt-2 text-zinc-500 text-xs hover:text-white transition-colors"
       >
-        Reenviar código
+        Mudar e-mail
       </button>
     </AuthLayout>
   );
