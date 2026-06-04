@@ -45,6 +45,7 @@ type OwnerForm = {
   confirmEmail: string;
   storeName: string;
   cnpj: string;
+  cep: string;
   address: string;
   cityState: string;
   password: string;
@@ -74,11 +75,52 @@ const OWNER_INITIAL: OwnerForm = {
   confirmEmail: "",
   storeName: "",
   cnpj: "",
+  cep: "",
   address: "",
   cityState: "",
   password: "",
   confirmPassword: "",
   acceptTerms: false,
+};
+
+const maskCPF = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+  return digits
+    .slice(0, 11)
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+};
+
+const maskPhone = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length <= 10) {
+    return digits
+      .slice(0, 10)
+      .replace(/(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{4})(\d{1,4})$/, "$1-$2");
+  }
+  return digits
+    .slice(0, 11)
+    .replace(/(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{5})(\d{1,4})$/, "$1-$2");
+};
+
+const maskCNPJ = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+  return digits
+    .slice(0, 14)
+    .replace(/(\d{2})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1/$2")
+    .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
+};
+
+const maskCEP = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+  return digits
+    .slice(0, 8)
+    .replace(/(\d{5})(\d{1,3})$/, "$1-$2");
 };
 
 export default function Register() {
@@ -167,6 +209,10 @@ export default function Register() {
       }
       if (!isValidCNPJ(ownerForm.cnpj)) {
         nextErrors.cnpj = "Informe um CNPJ válido.";
+      }
+      const cleanCep = ownerForm.cep.replace(/\D/g, "");
+      if (cleanCep.length !== 8) {
+        nextErrors.cep = "Informe um CEP válido.";
       }
       if (isEmpty(ownerForm.address)) {
         nextErrors.address = "Informe o endereço da estética.";
@@ -274,6 +320,33 @@ export default function Register() {
     return { city: cleaned, state: "" };
   };
 
+  const handleOwnerCepLookup = async (cep: string) => {
+    const cleanCep = cep.replace(/\D/g, "");
+    if (cleanCep.length !== 8) return;
+
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+      const data = await response.json();
+
+      if (!data.erro) {
+        setOwnerForm((prev) => ({
+          ...prev,
+          cep: data.cep || prev.cep,
+          address: data.logradouro ? `${data.logradouro}${data.bairro ? `, ${data.bairro}` : ""}` : prev.address,
+          cityState: data.localidade && data.uf ? `${data.localidade} / ${data.uf}` : prev.cityState,
+        }));
+
+        setOwnerErrors((prev) => {
+          const next = { ...prev };
+          delete next.cep;
+          return next;
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao buscar CEP:", error);
+    }
+  };
+
   const handleOwnerSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -302,6 +375,7 @@ export default function Register() {
           address: ownerForm.address,
           city,
           state,
+          zip_code: ownerForm.cep,
         },
       });
 
@@ -448,7 +522,7 @@ export default function Register() {
               value={personalForm.cpf}
               error={personalErrors.cpf}
               onChange={(e) =>
-                setPersonalForm((prev) => ({ ...prev, cpf: e.target.value }))
+                setPersonalForm((prev) => ({ ...prev, cpf: maskCPF(e.target.value) }))
               }
             />
             <Input
@@ -457,7 +531,7 @@ export default function Register() {
               value={personalForm.phone}
               error={personalErrors.phone}
               onChange={(e) =>
-                setPersonalForm((prev) => ({ ...prev, phone: e.target.value }))
+                setPersonalForm((prev) => ({ ...prev, phone: maskPhone(e.target.value) }))
               }
             />
           </div>
@@ -619,7 +693,7 @@ export default function Register() {
                   value={ownerForm.cpf}
                   error={ownerErrors.cpf}
                   onChange={(e) =>
-                    setOwnerForm((prev) => ({ ...prev, cpf: e.target.value }))
+                    setOwnerForm((prev) => ({ ...prev, cpf: maskCPF(e.target.value) }))
                   }
                 />
                 <Input
@@ -628,7 +702,7 @@ export default function Register() {
                   value={ownerForm.phone}
                   error={ownerErrors.phone}
                   onChange={(e) =>
-                    setOwnerForm((prev) => ({ ...prev, phone: e.target.value }))
+                    setOwnerForm((prev) => ({ ...prev, phone: maskPhone(e.target.value) }))
                   }
                 />
               </div>
@@ -683,22 +757,32 @@ export default function Register() {
                   value={ownerForm.cnpj}
                   error={ownerErrors.cnpj}
                   onChange={(e) =>
-                    setOwnerForm((prev) => ({ ...prev, cnpj: e.target.value }))
+                    setOwnerForm((prev) => ({ ...prev, cnpj: maskCNPJ(e.target.value) }))
                   }
                 />
                 <Input
-                  label="Cidade / Estado"
-                  placeholder="São Paulo / SP"
-                  value={ownerForm.cityState}
-                  error={ownerErrors.cityState}
+                  label="CEP"
+                  placeholder="00000-000"
+                  value={ownerForm.cep}
+                  error={ownerErrors.cep}
                   onChange={(e) =>
-                    setOwnerForm((prev) => ({
-                      ...prev,
-                      cityState: e.target.value,
-                    }))
+                    setOwnerForm((prev) => ({ ...prev, cep: maskCEP(e.target.value) }))
                   }
+                  onBlur={(e) => handleOwnerCepLookup(e.target.value)}
                 />
               </div>
+              <Input
+                label="Cidade / Estado"
+                placeholder="São Paulo / SP"
+                value={ownerForm.cityState}
+                error={ownerErrors.cityState}
+                onChange={(e) =>
+                  setOwnerForm((prev) => ({
+                    ...prev,
+                    cityState: e.target.value,
+                  }))
+                }
+              />
               <Input
                 label="Endereço"
                 placeholder="Rua, número, bairro"

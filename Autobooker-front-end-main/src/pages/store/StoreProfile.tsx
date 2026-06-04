@@ -92,14 +92,49 @@ export default function StoreProfile() {
     loadProfile();
   }, []);
 
+  const maskCNPJ = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    return digits
+      .slice(0, 14)
+      .replace(/(\d{2})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1/$2")
+      .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
+  };
+
+  const maskPhone = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    if (digits.length <= 10) {
+      return digits
+        .slice(0, 10)
+        .replace(/(\d{2})(\d)/, "($1) $2")
+        .replace(/(\d{4})(\d{1,4})$/, "$1-$2");
+    }
+    return digits
+      .slice(0, 11)
+      .replace(/(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{5})(\d{1,4})$/, "$1-$2");
+  };
+
+  const maskCEP = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    return digits
+      .slice(0, 8)
+      .replace(/(\d{5})(\d{1,3})$/, "$1-$2");
+  };
+
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) {
     const { name, value } = e.target;
+    let val = value;
+    if (name === "cnpj") val = maskCNPJ(value);
+    if (name === "phone") val = maskPhone(value);
+    if (name === "zip_code") val = maskCEP(value);
 
     setStoreData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: val,
     }));
   }
 
@@ -121,6 +156,28 @@ export default function StoreProfile() {
         [field]: value,
       },
     }));
+  };
+
+  const handleCepLookup = async (cep: string) => {
+    const cleanCep = cep.replace(/\D/g, "");
+    if (cleanCep.length !== 8) return;
+
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+      const data = await response.json();
+
+      if (!data.erro) {
+        setStoreData((prev) => ({
+          ...prev,
+          zip_code: data.cep || prev.zip_code,
+          address: data.logradouro ? `${data.logradouro}${data.bairro ? `, ${data.bairro}` : ""}` : prev.address,
+          city: data.localidade || prev.city,
+          state: data.uf || prev.state,
+        }));
+      }
+    } catch (error) {
+      console.error("Erro ao buscar CEP:", error);
+    }
   };
 
   async function handleSave() {
@@ -392,6 +449,7 @@ export default function StoreProfile() {
                   name="zip_code"
                   value={storeData.zip_code}
                   onChange={handleChange}
+                  onBlur={(e) => handleCepLookup(e.target.value)}
                   className="w-full rounded-md border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
                 />
               </div>
