@@ -13,11 +13,13 @@ import AdvanceStatusModal from "./modals/AdvanceStatusModal";
 
 type DashboardData = {
   store: {
+    id: number;
     name: string;
   };
   monthlyRevenue: number;
   todayAppointmentsCount: number;
   servedClients: number;
+  lowStockCount: number;
   nextAppointment: any | null;
   recentServices: any[];
   todayAppointments: any[];
@@ -78,7 +80,9 @@ export default function StoreDashboard() {
     },
     {
       label: "Estoque e Produtos Baixo",
-      valor: "3 Itens",
+      valor: `${dashboard?.lowStockCount ?? 0} ${
+        (dashboard?.lowStockCount ?? 0) === 1 ? "Item" : "Itens"
+      }`,
       icone: AlertCircle,
       cor: "bg-zinc-100 text-zinc-600",
     },
@@ -88,27 +92,37 @@ export default function StoreDashboard() {
   // 2. DADOS DE AGENDAMENTOS
   // ──────────────────────────────────────────────────────────
   const agendamentos =
-  dashboard?.todayAppointments?.map((appointment: any) => ({
-    id: appointment.id,
+  dashboard?.todayAppointments?.map((appointment: any) => {
+    const horaFormatada = (() => {
+      if (!appointment.appointment_date) return appointment.appointment_time?.slice(0, 5) ?? "";
+      const dateVal = appointment.appointment_date;
+      const datePart = dateVal.includes("T") ? dateVal.split("T")[0] : dateVal;
+      const todayStr = new Date().toLocaleDateString("en-CA");
+      if (datePart === todayStr) {
+        return appointment.appointment_time?.slice(0, 5) ?? "";
+      } else {
+        const [year, month, day] = datePart.split("-");
+        return `${day}/${month} às ${appointment.appointment_time?.slice(0, 5)}`;
+      }
+    })();
 
-    hora: appointment.appointment_time?.slice(0, 5),
-
-    cliente: appointment.client?.name || "Cliente",
-
-    servico: `${appointment.service?.name || "Serviço não informado"} - ${
-      appointment.vehicle?.model || "Veículo"
-    }`,
-
-    status:
-      appointment.status === "completed"
-        ? "completed"
-        : "pending",
-
-    borderColor:
-      appointment.status === "completed"
-        ? "border-l-green-500"
-        : "border-l-orange-400",
-  })) || [];
+    return {
+      id: appointment.id,
+      hora: horaFormatada,
+      cliente: appointment.client?.name || "Cliente",
+      servico: `${appointment.service?.name || "Serviço não informado"} - ${
+        appointment.vehicle?.model || "Veículo"
+      }`,
+      status:
+        appointment.status === "completed"
+          ? "completed"
+          : "pending",
+      borderColor:
+        appointment.status === "completed"
+          ? "border-l-green-500"
+          : "border-l-orange-400",
+    };
+  }) || [];
 
   // ──────────────────────────────────────────────────────────
   // 3. AÇÕES RÁPIDAS
@@ -172,7 +186,13 @@ export default function StoreDashboard() {
       <ShareLinkModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
-        storeSlug="lava-rapido-express"
+        storeSlug={
+          dashboard?.store?.name
+            ?.normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/\s+/g, "-")
+        }
       />
 
       <RegisterExpenseModal
@@ -249,23 +269,13 @@ export default function StoreDashboard() {
                       >
                         Ver Detalhes
                       </Button>
-
-                      {agendamento.status === "pending" && (
-                        <Button
-                          variant="outline"
-                          className="text-xs px-3 py-1.5 !rounded-md"
-                          onClick={() => setSelectedAppointmentId(agendamento.id)}
-                        >
-                          Avançar Status
-                        </Button>
-                      )}
                     </div>
                   </Card>
                 );
               })
             ) : (
               <p className="text-sm text-zinc-500">
-                Nenhum agendamento para hoje.
+                Nenhum agendamento pendente.
               </p>
             )}
           </div>

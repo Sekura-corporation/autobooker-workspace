@@ -31,6 +31,8 @@ export type ApiStoreRecord = ServiceRecord & {
   email?: string | null;
   openingHours?: string | null;
   opening_hours?: string | null;
+  logo_url?: string | null;
+  banner_url?: string | null;
 };
 
 export type ApiStoreServiceRecord = ServiceRecord & {
@@ -133,6 +135,21 @@ export async function getStoreSettings(storeId: string, tenantId?: string) {
   const { data } = await api.get<ServiceRecord>(`/stores/${storeId}/settings`, {
     headers: tenantHeaders(tenantId),
   });
+  return data;
+}
+
+export async function getStoreRewards(storeId: string) {
+  const { data } = await api.get(`/stores/${storeId}/rewards`);
+  return data;
+}
+
+export async function getStoreProducts(storeId: string) {
+  const { data } = await api.get(`/stores/${storeId}/products`);
+  return data;
+}
+
+export async function getStorePackages(storeId: string) {
+  const { data } = await api.get(`/stores/${storeId}/packages`);
   return data;
 }
 

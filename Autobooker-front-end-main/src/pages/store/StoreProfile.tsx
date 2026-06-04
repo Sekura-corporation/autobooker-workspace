@@ -5,6 +5,36 @@ import ChangePlanModal from "./modals/ChangePlanModal";
 import { useEffect, useState } from "react";
 import api from "@/services/api";
 
+type DaySchedule = {
+  open: boolean;
+  start: string;
+  end: string;
+};
+
+type WeeklySchedule = {
+  [key: string]: DaySchedule;
+};
+
+const DEFAULT_SCHEDULE: WeeklySchedule = {
+  seg: { open: true, start: "08:00", end: "18:00" },
+  ter: { open: true, start: "08:00", end: "18:00" },
+  qua: { open: true, start: "08:00", end: "18:00" },
+  qui: { open: true, start: "08:00", end: "18:00" },
+  sex: { open: true, start: "08:00", end: "18:00" },
+  sab: { open: true, start: "08:00", end: "12:00" },
+  dom: { open: false, start: "00:00", end: "00:00" },
+};
+
+const dayNames: { [key: string]: string } = {
+  seg: "Segunda-feira",
+  ter: "Terça-feira",
+  qua: "Quarta-feira",
+  qui: "Quinta-feira",
+  sex: "Sexta-feira",
+  sab: "Sábado",
+  dom: "Domingo",
+};
+
 export default function StoreProfile() {
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
 
@@ -19,25 +49,41 @@ export default function StoreProfile() {
     zip_code: "",
     description: "",
     opening_hours: "",
+    logo_url: "",
+    banner_url: "",
   });
+
+  const [weeklySchedule, setWeeklySchedule] = useState<WeeklySchedule>(DEFAULT_SCHEDULE);
 
   useEffect(() => {
     async function loadProfile() {
       try {
         const response = await api.get("/store/profile");
+        const rawStore = response.data.data;
 
         setStoreData({
-          name: response.data.data.name || "",
-          cnpj: response.data.data.cnpj || "",
-          phone: response.data.data.phone || "",
-          email: response.data.data.email || "",
-          address: response.data.data.address || "",
-          city: response.data.data.city || "",
-          state: response.data.data.state || "",
-          zip_code: response.data.data.zip_code || "",
-          description: response.data.data.description || "",
-          opening_hours: response.data.data.opening_hours || "",
+          name: rawStore.name || "",
+          cnpj: rawStore.cnpj || "",
+          phone: rawStore.phone || "",
+          email: rawStore.email || "",
+          address: rawStore.address || "",
+          city: rawStore.city || "",
+          state: rawStore.state || "",
+          zip_code: rawStore.zip_code || "",
+          description: rawStore.description || "",
+          opening_hours: rawStore.opening_hours || "",
+          logo_url: rawStore.logo_url || "",
+          banner_url: rawStore.banner_url || "",
         });
+
+        const rawHours = rawStore.opening_hours;
+        if (rawHours && rawHours.trim().startsWith("{")) {
+          try {
+            setWeeklySchedule(JSON.parse(rawHours));
+          } catch (e) {
+            console.error("Erro ao fazer parse dos horários:", e);
+          }
+        }
       } catch (error) {
         console.error("Erro ao carregar perfil:", error);
       }
@@ -46,24 +92,138 @@ export default function StoreProfile() {
     loadProfile();
   }, []);
 
+  const maskCNPJ = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    return digits
+      .slice(0, 14)
+      .replace(/(\d{2})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1/$2")
+      .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
+  };
+
+  const maskPhone = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    if (digits.length <= 10) {
+      return digits
+        .slice(0, 10)
+        .replace(/(\d{2})(\d)/, "($1) $2")
+        .replace(/(\d{4})(\d{1,4})$/, "$1-$2");
+    }
+    return digits
+      .slice(0, 11)
+      .replace(/(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{5})(\d{1,4})$/, "$1-$2");
+  };
+
+  const maskCEP = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    return digits
+      .slice(0, 8)
+      .replace(/(\d{5})(\d{1,3})$/, "$1-$2");
+  };
+
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) {
     const { name, value } = e.target;
+    let val = value;
+    if (name === "cnpj") val = maskCNPJ(value);
+    if (name === "phone") val = maskPhone(value);
+    if (name === "zip_code") val = maskCEP(value);
 
     setStoreData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: val,
     }));
   }
 
+  const handleDayToggle = (day: string) => {
+    setWeeklySchedule((prev) => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        open: !prev[day].open,
+      },
+    }));
+  };
+
+  const handleTimeChange = (day: string, field: "start" | "end", value: string) => {
+    setWeeklySchedule((prev) => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleCepLookup = async (cep: string) => {
+    const cleanCep = cep.replace(/\D/g, "");
+    if (cleanCep.length !== 8) return;
+
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+      const data = await response.json();
+
+      if (!data.erro) {
+        setStoreData((prev) => ({
+          ...prev,
+          zip_code: data.cep || prev.zip_code,
+          address: data.logradouro ? `${data.logradouro}${data.bairro ? `, ${data.bairro}` : ""}` : prev.address,
+          city: data.localidade || prev.city,
+          state: data.uf || prev.state,
+        }));
+      }
+    } catch (error) {
+      console.error("Erro ao buscar CEP:", error);
+    }
+  };
+
   async function handleSave() {
     try {
-      await api.put("/store/profile", storeData);
+      const payload = {
+        ...storeData,
+        opening_hours: JSON.stringify(weeklySchedule),
+      };
+      await api.put("/store/profile", payload);
       alert("Perfil atualizado com sucesso!");
     } catch (error) {
       console.error("Erro ao salvar perfil:", error);
       alert("Erro ao salvar perfil.");
+    }
+  }
+
+  async function handleImageUpload(
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: "logo" | "banner"
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append(type, file);
+
+    try {
+      const response = await api.post("/store/profile/upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      setStoreData((prev) => ({
+        ...prev,
+        [`${type}_url`]: response.data.data[`${type}_url`],
+      }));
+
+      alert(
+        `${type === "logo" ? "Logotipo" : "Banner"} atualizado com sucesso!`
+      );
+    } catch (error) {
+      console.error("Erro ao fazer upload da imagem:", error);
+      alert(
+        "Erro ao enviar a imagem. Verifique se o formato está correto (PNG, JPG, WebP) e se o tamanho é menor que o limite (2MB para logo, 4MB para banner)."
+      );
     }
   }
 
@@ -88,11 +248,77 @@ export default function StoreProfile() {
               Dados da Empresa
             </h2>
 
-            <div className="mb-6">
-              <div className="w-[120px] h-[120px] border border-dashed border-zinc-300 rounded-md flex items-center justify-center bg-zinc-50 cursor-pointer hover:bg-zinc-100 transition-colors">
-                <span className="text-sm font-medium text-zinc-500">
-                  [ Alterar Logo ]
-                </span>
+            <div className="mb-6 flex flex-col sm:flex-row gap-6">
+              <div className="flex flex-col gap-2">
+                <label className="block text-xs font-bold text-zinc-900">
+                  Logotipo da Loja (1:1)
+                </label>
+                <div
+                  className="relative w-[120px] h-[120px] border border-dashed border-zinc-300 rounded-md flex items-center justify-center bg-zinc-50 cursor-pointer hover:bg-zinc-100 transition-colors overflow-hidden group"
+                  onClick={() => document.getElementById("logo-input")?.click()}
+                >
+                  {storeData.logo_url ? (
+                    <>
+                      <img
+                        src={storeData.logo_url}
+                        alt="Logo"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="text-[10px] font-bold text-white text-center px-2">
+                          Alterar Logo
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <span className="text-[10px] font-semibold text-zinc-400 text-center px-2">
+                      [ Adicionar Logo ]
+                    </span>
+                  )}
+                </div>
+                <input
+                  id="logo-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleImageUpload(e, "logo")}
+                />
+              </div>
+
+              <div className="flex-1 flex flex-col gap-2">
+                <label className="block text-xs font-bold text-zinc-900">
+                  Banner de Fundo
+                </label>
+                <div
+                  className="relative w-full h-[120px] border border-dashed border-zinc-300 rounded-md flex items-center justify-center bg-zinc-50 cursor-pointer hover:bg-zinc-100 transition-colors overflow-hidden group"
+                  onClick={() => document.getElementById("banner-input")?.click()}
+                >
+                  {storeData.banner_url ? (
+                    <>
+                      <img
+                        src={storeData.banner_url}
+                        alt="Banner"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="text-[10px] font-bold text-white text-center px-2">
+                          Alterar Banner
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <span className="text-[10px] font-semibold text-zinc-400 text-center px-2">
+                      [ Adicionar Banner ]
+                    </span>
+                  )}
+                </div>
+                <input
+                  id="banner-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleImageUpload(e, "banner")}
+                />
               </div>
             </div>
 
@@ -223,22 +449,66 @@ export default function StoreProfile() {
                   name="zip_code"
                   value={storeData.zip_code}
                   onChange={handleChange}
+                  onBlur={(e) => handleCepLookup(e.target.value)}
                   className="w-full rounded-md border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-zinc-900 mb-2">
+                <label className="block text-xs font-bold text-zinc-900 mb-4">
                   Horário de Funcionamento
                 </label>
-                <input
-                  type="text"
-                  name="opening_hours"
-                  value={storeData.opening_hours}
-                  onChange={handleChange}
-                  placeholder="Ex: Segunda a sábado, 08:00 às 18:00"
-                  className="w-full rounded-md border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
-                />
+
+                {storeData.opening_hours && !storeData.opening_hours.trim().startsWith("{") && (
+                  <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs font-medium text-yellow-800 leading-relaxed">
+                    Sua configuração antiga está salva como texto livre: <strong className="font-bold">"{storeData.opening_hours}"</strong>. Ajuste os dias abaixo para atualizar para o novo formato estruturado e clique em salvar.
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  {Object.keys(weeklySchedule).map((day) => {
+                    const sched = weeklySchedule[day];
+                    return (
+                      <div key={day} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-zinc-50 rounded-lg border border-zinc-200">
+                        <div className="flex items-center gap-2.5 min-w-[130px]">
+                          <input
+                            type="checkbox"
+                            checked={sched.open}
+                            onChange={() => handleDayToggle(day)}
+                            className="w-4 h-4 text-[#820000] border-zinc-300 rounded focus:ring-[#820000]/20 cursor-pointer"
+                          />
+                          <span className="text-sm font-bold text-zinc-800">
+                            {dayNames[day]}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-1 sm:justify-end">
+                          {sched.open ? (
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="time"
+                                value={sched.start}
+                                onChange={(e) => handleTimeChange(day, "start", e.target.value)}
+                                className="rounded border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
+                              />
+                              <span className="text-xs text-zinc-400 font-bold">às</span>
+                              <input
+                                type="time"
+                                value={sched.end}
+                                onChange={(e) => handleTimeChange(day, "end", e.target.value)}
+                                className="rounded border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-xs font-bold text-zinc-400 tracking-wider uppercase">
+                              Fechado
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </Card>

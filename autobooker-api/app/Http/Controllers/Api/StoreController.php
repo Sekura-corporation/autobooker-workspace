@@ -7,6 +7,7 @@ use App\Models\Service;
 use App\Models\Store;
 use Illuminate\Http\Request;
 use App\Models\Appointment;
+use App\Models\PackageModel;
 
 class StoreController extends Controller
 {
@@ -79,6 +80,8 @@ class StoreController extends Controller
         'zip_code' => $store->zip_code,
         'description' => $store->description,
         'opening_hours' => $store->opening_hours,
+        'logo_url' => $store->logo_url,
+        'banner_url' => $store->banner_url,
 
         'createdAt' => $store->created_at ? $store->created_at->toISOString() : null,
         'updatedAt' => $store->updated_at ? $store->updated_at->toISOString() : null,
@@ -113,5 +116,54 @@ class StoreController extends Controller
         ->values();
 
     return response()->json($times);
+    }
+
+    public function rewards(Store $store)
+    {
+        $rewards = \App\Models\LoyaltyReward::where('store_id', $store->id)
+            ->where('active', true)
+            ->orderBy('points_cost')
+            ->get();
+
+        return response()->json($rewards);
+    }
+
+    public function products(Store $store)
+    {
+        $products = \App\Models\StockItem::where('store_id', $store->id)
+            ->where('type', 'product')
+            ->where('quantity', '>', 0)
+            ->whereNotNull('sale_price')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'price' => $item->sale_price,
+                    'quantity' => $item->quantity,
+                ];
+            });
+
+        return response()->json($products);
+    }
+
+    public function packages(Store $store)
+    {
+        $packages = PackageModel::where('store_id', $store->id)
+            ->orderBy('name')
+            ->get()
+            ->map(function ($package) {
+                return [
+                    'id' => $package->id,
+                    'name' => $package->name,
+                    'description' => $package->description,
+                    'price' => (float) $package->price,
+                    'sessions' => $package->sessions,
+                    'validity_days' => $package->validity_days,
+                ];
+            });
+
+        return response()->json($packages);
     }
 }

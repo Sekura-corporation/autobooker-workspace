@@ -8,6 +8,8 @@ import Badge from "@/components/ui/Badge";
 import {
   getStore,
   getStoreServices,
+  getStoreProducts,
+  getStorePackages,
   type ApiStoreRecord,
   type ApiStoreServiceRecord,
 } from "@/services/stores.service";
@@ -50,6 +52,24 @@ type ServiceCardModel = {
   icon: LucideIcon;
 };
 
+type ProductCardModel = {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  icon: LucideIcon;
+};
+
+type PackageCardModel = {
+  id: string;
+  name: string;
+  description?: string | null;
+  price: number;
+  sessions: number;
+  validity_days: number;
+  icon: LucideIcon;
+};
+
 const SERVICE_ICONS = [Droplet, Sparkles, Zap, Shield] as const;
 
 function pickString(v: unknown): string | undefined {
@@ -73,7 +93,38 @@ function formatStorePhone(s: ApiStoreRecord): string {
 }
 
 function formatOpeningHours(s: ApiStoreRecord): string {
-  return pickString(s.openingHours ?? s.opening_hours) ?? "—";
+  const raw = pickString(s.openingHours ?? s.opening_hours);
+  if (!raw) return "—";
+
+  if (raw.trim().startsWith("{")) {
+    try {
+      const schedule = JSON.parse(raw);
+      const dayLabels: { [key: string]: string } = {
+        seg: "Segunda-feira",
+        ter: "Terça-feira",
+        qua: "Quarta-feira",
+        qui: "Quinta-feira",
+        sex: "Sexta-feira",
+        sab: "Sábado",
+        dom: "Domingo",
+      };
+
+      return Object.keys(schedule)
+        .map((day) => {
+          const item = schedule[day];
+          const label = dayLabels[day] || day;
+          if (item.open) {
+            return `${label}: ${item.start} às ${item.end}`;
+          }
+          return `${label}: Fechado`;
+        })
+        .join("\n");
+    } catch (e) {
+      console.error("Erro ao formatar JSON de horários:", e);
+    }
+  }
+
+  return raw;
 }
 
 function mapRecordToStoreView(raw: ApiStoreRecord): StoreView {
@@ -87,7 +138,7 @@ function mapRecordToStoreView(raw: ApiStoreRecord): StoreView {
     openingHours: formatOpeningHours(raw),
     rating: 0,
     reviews: 0,
-    image: pickString(raw.image),
+    image: pickString(raw.banner_url) ?? pickString(raw.image),
     description: pickString(raw.description) ?? "Descrição não informada.",
   };
 }
@@ -145,6 +196,8 @@ export default function StoreDetail() {
   const [addedItems, setAddedItems] = useState<string[]>([]);
   const [store, setStore] = useState<StoreView | null>(null);
   const [services, setServices] = useState<ServiceCardModel[]>([]);
+  const [products, setProducts] = useState<ProductCardModel[]>([]);
+  const [packages, setPackages] = useState<PackageCardModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -161,9 +214,11 @@ export default function StoreDetail() {
       setLoading(true);
       setNotFound(false);
       try {
-        const [rawStore, rawServices] = await Promise.all([
+        const [rawStore, rawServices, rawProducts, rawPackages] = await Promise.all([
           getStore(storeId),
           getStoreServices(storeId, { active: true }),
+          getStoreProducts(storeId),
+          getStorePackages(storeId),
         ]);
 
         console.log("LOJA CLIENTE:", rawStore);
@@ -180,6 +235,27 @@ export default function StoreDetail() {
         setStore(view);
         const list = Array.isArray(rawServices) ? rawServices : [];
         setServices(list.map((svc, i) => mapServiceToCard(svc, i)));
+        setProducts(
+          rawProducts.map((product: any, index: number) => ({
+            id: String(product.id),
+            name: product.name,
+            price: Number(product.price),
+            quantity: product.quantity,
+            icon: SERVICE_ICONS[index % SERVICE_ICONS.length],
+          }))
+        );
+        const packageList = Array.isArray(rawPackages) ? rawPackages : [];
+        setPackages(
+          packageList.map((pkg: any, index: number) => ({
+            id: String(pkg.id),
+            name: pkg.name,
+            description: pkg.description,
+            price: Number(pkg.price),
+            sessions: Number(pkg.sessions),
+            validity_days: Number(pkg.validity_days),
+            icon: SERVICE_ICONS[index % SERVICE_ICONS.length],
+          }))
+        );
       } catch {
         if (!cancelled) {
           toastError("Não foi possível carregar esta estética.");
@@ -434,196 +510,185 @@ export default function StoreDetail() {
             <h2 className="text-2xl font-extrabold text-gray-900 mb-6">
               Pacotes Mensais/VIP
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[
-                {
-                  name: "Combo Diamante",
-                  services: "Lavagem + Higienização + Cera",
-                  description: "Economize R$ 35,00 reservando junto!",
-                  price: "R$ 180,00",
-                  popular: true,
-                  icon: Sparkles,
-                },
-                {
-                  name: "Estética Bronze",
-                  services: "Motor e Bancos",
-                  description: "Foco em sujeira interna extrema.",
-                  price: "R$ 110,00",
-                  popular: false,
-                  icon: Shield,
-                },
-                {
-                  name: "Proteção Cerâmica",
-                  services: "Proteção Completa",
-                  description: "Máxima proteção e brilho duradouro.",
-                  price: "R$ 299,00",
-                  popular: false,
-                  icon: Shield,
-                },
-              ].map((pkg, idx) => {
-                const IconComponent = pkg.icon;
-                return (
-                  <Card
-                    key={idx}
-                    className={`p-6 border-2 hover:shadow-lg transition-all rounded-xl ${
-                      pkg.popular
-                        ? "border-[#820000] bg-red-50"
-                        : "border-gray-200 hover:border-[#820000]"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="p-3 bg-red-100 rounded-lg">
-                        <IconComponent className="w-6 h-6 text-[#820000]" />
-                      </div>
-                      {pkg.popular && (
-                        <Badge className="bg-[#820000] text-white font-bold text-xs px-3 py-1">
-                          MAIS POPULAR
-                        </Badge>
-                      )}
-                    </div>
-                    <h3 className="font-bold text-gray-900 mb-1 text-lg">
-                      {pkg.name}
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-3 font-medium">
-                      {pkg.services}
-                    </p>
-                    <p className="text-sm text-gray-600 mb-4">
-                      {pkg.description}
-                    </p>
-                    <p className="text-2xl font-extrabold text-green-600 mb-6">
-                      {pkg.price}
-                    </p>
-                    <Button
-                      className={`w-full font-bold rounded-lg py-2.5 transition-all shadow-md ${
-                        addedItems.includes(`package-${idx}`)
-                          ? "bg-green-600 hover:bg-green-700 text-white"
-                          : "bg-[#820000] hover:bg-[#660000] text-white"
-                      }`}
-                      onClick={() => {
-                        const alreadyHasAppointmentItem = items.some(
-                          (item) => item.type === "service" || item.type === "package"
-                        );
-                      
-                        if (alreadyHasAppointmentItem) {
-                          alert("Você só pode agendar um serviço ou pacote por vez.");
-                          return;
-                        }
-                      
-                        const packageKey = `package-${idx}`;
-                      
-                        addItem({
-                          id: packageKey,
-                          storeId: store.id,
-                          storeName: store.name,
-                          type: "package",
-                          name: pkg.name,
-                          price: Number(
-                            pkg.price
-                              .replace("R$", "")
-                              .replace(".", "")
-                              .replace(",", ".")
-                              .trim()
-                          ),
-                          quantity: 1,
-                          duration: pkg.services,
-                        });
-                      
-                        setAddedItems([...addedItems, packageKey]);
-                      }}
+
+            {packages.length === 0 ? (
+              <p className="text-gray-600 text-sm">
+                Nenhum pacote disponível no momento.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {packages.map((pkg) => {
+                  const IconComponent = pkg.icon;
+                  const packageKey = `package-${pkg.id}`;
+
+                  return (
+                    <Card
+                      key={pkg.id}
+                      className="p-6 border-2 border-gray-200 hover:border-[#820000] hover:shadow-lg transition-all rounded-xl"
                     >
-                      {addedItems.includes(`package-${idx}`) ? (
-                        <>
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Adicionado
-                        </>
-                      ) : (
-                        <>
-                          <ShoppingCart className="w-4 h-4 mr-2" />
-                          Adicionar
-                        </>
-                      )}
-                    </Button>
-                  </Card>
-                );
-              })}
-            </div>
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="p-3 bg-red-100 rounded-lg">
+                          <IconComponent className="w-6 h-6 text-[#820000]" />
+                        </div>
+
+                        <Badge className="bg-[#820000] text-white font-bold text-xs px-3 py-1">
+                          VIP
+                        </Badge>
+                      </div>
+
+                      <h3 className="font-bold text-gray-900 mb-1 text-lg">
+                        {pkg.name}
+                      </h3>
+
+                      <p className="text-sm text-gray-600 mb-3 font-medium">
+                        {pkg.description || "Pacote promocional da estética"}
+                      </p>
+
+                      <div className="flex flex-col gap-1 mb-4 text-sm text-gray-600">
+                        <span>
+                          {pkg.sessions} {pkg.sessions === 1 ? "sessão" : "sessões"}
+                        </span>
+
+                        <span>
+                          Validade: {pkg.validity_days} dias
+                        </span>
+                      </div>
+
+                      <p className="text-2xl font-extrabold text-green-600 mb-6">
+                        {formatBrl(pkg.price)}
+                      </p>
+
+                      <Button
+                        className={`w-full font-bold rounded-lg py-2.5 transition-all shadow-md ${
+                          addedItems.includes(packageKey)
+                            ? "bg-green-600 hover:bg-green-700 text-white"
+                            : "bg-[#820000] hover:bg-[#660000] text-white"
+                        }`}
+                        onClick={() => {
+                          const alreadyHasAppointmentItem = items.some(
+                            (item) => item.type === "service" || item.type === "package"
+                          );
+
+                          if (alreadyHasAppointmentItem) {
+                            alert("Você só pode agendar um serviço ou pacote por vez.");
+                            return;
+                          }
+
+                          addItem({
+                            id: pkg.id,
+                            storeId: store.id,
+                            storeName: store.name,
+                            type: "package",
+                            name: pkg.name,
+                            price: pkg.price,
+                            quantity: 1,
+                            duration: `${pkg.sessions} ${
+                              pkg.sessions === 1 ? "sessão" : "sessões"
+                            } · ${pkg.validity_days} dias`,
+                          });
+
+                          if (!addedItems.includes(packageKey)) {
+                            setAddedItems([...addedItems, packageKey]);
+                          }
+                        }}
+                      >
+                        {addedItems.includes(packageKey) ? (
+                          <>
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Adicionado
+                          </>
+                        ) : (
+                          <>
+                            <ShoppingCart className="w-4 h-4 mr-2" />
+                            Comprar Pacote
+                          </>
+                        )}
+                      </Button>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
-        {/* PRODUCTS TAB */}
-        {activeTab === "products" && (
+              {/* PRODUCTS TAB */}
+              {activeTab === "products" && (
           <div>
             <h2 className="text-2xl font-extrabold text-gray-900 mb-6">
               Produtos p/ Comprar no Local
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[
-                {
-                  name: "Aromatizante Automotivo (Pinho)",
-                  price: "R$ 15,00",
-                  icon: Zap,
-                },
-                {
-                  name: "Cera de Carnaúba Líquida (500ml)",
-                  price: "R$ 89,90",
-                  icon: Droplet,
-                },
-                {
-                  name: "Limpador Multiuso",
-                  price: "R$ 25,00",
-                  icon: Sparkles,
-                },
-              ].map((product, idx) => {
-                const IconComponent = product.icon;
-                return (
-                  <Card
-                    key={idx}
-                    className="p-6 border border-gray-200 hover:border-[#820000] hover:shadow-lg transition-all rounded-xl"
-                  >
-                    <div className="p-4 bg-gray-100 rounded-lg mb-4 w-fit">
-                      <IconComponent className="w-8 h-8 text-gray-600" />
-                    </div>
-                    <h3 className="font-bold text-gray-900 mb-4 text-lg">
-                      {product.name}
-                    </h3>
-                    <p className="text-2xl font-extrabold text-green-600 mb-6">
-                      {product.price}
-                    </p>
-                    <Button
-                      className={`w-full font-bold rounded-lg py-2.5 transition-all ${
-                        addedItems.includes(`product-${idx}`)
-                          ? "bg-green-600 hover:bg-green-700 text-white"
-                          : "bg-gray-100 text-gray-900 hover:bg-gray-200"
-                      }`}
-                      onClick={() => {
-                        addItem({
-                          id: `product-${idx}`,
-                          storeId: store.id,
-                          storeName: store.name,
-                          type: "product",
-                          name: product.name,
-                          price: parseFloat(product.price.replace("R$ ", "")),
-                          quantity: 1,
-                        });
-                        setAddedItems([...addedItems, `product-${idx}`]);
-                      }}
+
+            {products.length === 0 ? (
+              <p className="text-gray-600 text-sm">
+                Nenhum produto disponível no momento.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {products.map((product) => {
+                  const IconComponent = product.icon;
+                  const cartKey = `product-${product.id}`;
+
+                  return (
+                    <Card
+                      key={product.id}
+                      className="p-6 border border-gray-200 hover:border-[#820000] hover:shadow-lg transition-all rounded-xl"
                     >
-                      {addedItems.includes(`product-${idx}`) ? (
-                        <>
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Adicionado
-                        </>
-                      ) : (
-                        <>
-                          <ShoppingCart className="w-4 h-4 mr-2" />
-                          Adicionar
-                        </>
-                      )}
-                    </Button>
-                  </Card>
-                );
-              })}
-            </div>
+                      <div className="p-4 bg-gray-100 rounded-lg mb-4 w-fit">
+                        <IconComponent className="w-8 h-8 text-gray-600" />
+                      </div>
+
+                      <h3 className="font-bold text-gray-900 mb-2 text-lg">
+                        {product.name}
+                      </h3>
+
+                      <p className="text-xs text-gray-500 mb-4">
+                        Disponível: {product.quantity} un.
+                      </p>
+
+                      <p className="text-2xl font-extrabold text-green-600 mb-6">
+                        {formatBrl(product.price)}
+                      </p>
+
+                      <Button
+                        className={`w-full font-bold rounded-lg py-2.5 transition-all ${
+                          addedItems.includes(cartKey)
+                            ? "bg-green-600 hover:bg-green-700 text-white"
+                            : "bg-gray-100 text-gray-900 hover:bg-gray-200"
+                        }`}
+                        onClick={() => {
+                          addItem({
+                            id: product.id,
+                            storeId: store.id,
+                            storeName: store.name,
+                            type: "product",
+                            name: product.name,
+                            price: product.price,
+                            quantity: 1,
+                          });
+
+                          if (!addedItems.includes(cartKey)) {
+                            setAddedItems([...addedItems, cartKey]);
+                          }
+                        }}
+                      >
+                        {addedItems.includes(cartKey) ? (
+                          <>
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Adicionado
+                          </>
+                        ) : (
+                          <>
+                            <ShoppingCart className="w-4 h-4 mr-2" />
+                            Adicionar
+                          </>
+                        )}
+                      </Button>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -668,7 +733,7 @@ export default function StoreDetail() {
               <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                 Horário
               </p>
-              <p className="text-gray-900 font-semibold text-sm">
+              <p className="text-gray-900 font-semibold text-sm whitespace-pre-line">
                 {store.openingHours}
               </p>
             </div>

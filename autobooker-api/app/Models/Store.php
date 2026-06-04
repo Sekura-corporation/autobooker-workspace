@@ -22,6 +22,8 @@ class Store extends Model
         'opening_hours',
         'plan_id',
         'status',
+        'logo_url',
+        'banner_url',
     ];
 
     protected $casts = [

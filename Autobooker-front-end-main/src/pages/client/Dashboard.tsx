@@ -1,3 +1,4 @@
+import api from "@/services/api";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { listAppointments } from "@/services/appointments.service";
@@ -32,19 +33,23 @@ export default function ClientDashboard() {
   const [selectedAppointment, setSelectedAppointment] = useState<any | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [nearStores, setNearStores] = useState<any[]>([]);
+  const [loyaltyPoints, setLoyaltyPoints] = useState(0);
 
   useEffect(() => {
     async function loadDashboard() {
       try {
-        const [appointmentsData, vehiclesData, storesData] = await Promise.all([
+        const [appointmentsData, vehiclesData, storesData, loyaltyData] =
+        await Promise.all([
           listAppointments(),
           listVehicles(),
           listStores({ status: "active", limit: 2 }),
+          api.get("/loyalty"),
         ]);
 
         setAppointments(appointmentsData);
         setVehicles(vehiclesData);
         setNearStores(storesData);
+        setLoyaltyPoints(loyaltyData.data.totalPoints || 0);
       } catch (error) {
         console.error("Erro ao carregar dashboard:", error);
       }
@@ -64,9 +69,6 @@ export default function ClientDashboard() {
 
   const activeAppointmentsCount = activeAppointments.length;
   const totalVehicles = vehicles.length;
-
-  const loyaltyPoints =
-    appointments.filter((a) => a.status === "completed").length * 50;
 
   const recentHistory = [...appointments]
     .filter((a) => ["completed", "cancelled"].includes(a.status))

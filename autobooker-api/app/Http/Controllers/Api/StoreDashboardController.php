@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
+use App\Models\StockItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
@@ -22,42 +23,49 @@ class StoreDashboardController extends Controller
             ], 404);
         }
 
-        $today = Carbon::today()->toDateString();
+        $today = now()->toDateString();
 
         $appointments = Appointment::with([
             'client',
             'vehicle',
             'service'
         ])
-        ->where('store_id', $store->id)
-        ->get();
+            ->where('store_id', $store->id)
+            ->get();
 
-        // Agendamentos de hoje
-        $todayAppointments = $appointments
-            ->filter(function ($appointment) use ($today) {
-                return Carbon::parse($appointment->appointment_date)->toDateString() === $today;
-            })
-            ->values();
+        $todayAppointments = Appointment::with(['client', 'vehicle', 'service'])
+            ->where('store_id', $store->id)
+            ->whereDate('appointment_date', now()->toDateString())
+            ->whereIn('status', ['pending', 'waiting', 'in_progress'])
+            ->orderBy('appointment_time')
+            ->get();
 
-        // Faturamento do mês
-        $monthlyRevenue = $appointments
-            ->filter(function ($appointment) {
-                return $appointment->status === 'completed'
-                    && Carbon::parse($appointment->appointment_date)->isCurrentMonth();
-            })
+        if ($todayAppointments->isEmpty()) {
+            $todayAppointments = Appointment::with(['client', 'vehicle', 'service'])
+                ->where('store_id', $store->id)
+                ->whereDate('appointment_date', '>', now()->toDateString())
+                ->whereIn('status', ['pending', 'waiting', 'in_progress'])
+                ->orderBy('appointment_date')
+                ->orderBy('appointment_time')
+                ->limit(5)
+                ->get();
+        }
+
+        $monthlyRevenue = Appointment::where('store_id', $store->id)
+            ->where('status', 'completed')
+            ->whereYear('appointment_date', now()->year)
+            ->whereMonth('appointment_date', now()->month)
             ->sum('price');
 
-        // Clientes atendidos
         $servedClients = $appointments
             ->where('status', 'completed')
             ->pluck('client_id')
             ->unique()
             ->count();
 
-        // Próximo agendamento
         $nextAppointment = $appointments
             ->filter(function ($appointment) use ($today) {
-                return in_array($appointment->status, ['pending', 'inProgress'])
+                return in_array($appointment->status, ['pending', 'waiting', 'in_progress'])
                     && Carbon::parse($appointment->appointment_date)->toDateString() >= $today;
             })
             ->sortBy(function ($appointment) {
@@ -67,33 +75,28 @@ class StoreDashboardController extends Controller
             })
             ->first();
 
-        // Serviços recentes
         $recentServices = $appointments
             ->where('status', 'completed')
             ->sortByDesc('updated_at')
             ->take(5)
             ->values();
 
+        $lowStockCount = StockItem::where('store_id', $store->id)
+            ->whereColumn('quantity', '<=', 'min_quantity')
+            ->count();
+
         return response()->json([
             'success' => true,
-
             'data' => [
                 'store' => $store,
-                
                 'monthlyRevenue' => $monthlyRevenue,
-
                 'todayAppointmentsCount' => $todayAppointments->count(),
-
                 'servedClients' => $servedClients,
-
+                'lowStockCount' => $lowStockCount,
                 'nextAppointment' => $nextAppointment,
-
                 'recentServices' => $recentServices,
-
                 'todayAppointments' => $todayAppointments,
             ]
-
-            
         ]);
     }
 }
