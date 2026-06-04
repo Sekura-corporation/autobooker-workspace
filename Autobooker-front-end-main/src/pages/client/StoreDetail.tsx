@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import { useNavigate, useParams } from "react-router-dom";
 import { ROLE_BASE_PATHS } from "@/utils/constants";
 import { useCart } from "@/context/useCart";
@@ -433,7 +434,7 @@ export default function StoreDetail() {
                           );
                         
                           if (alreadyHasAppointmentItem) {
-                            alert("Você só pode agendar um serviço ou pacote por vez.");
+                            toast.error("Você só pode agendar um serviço ou pacote por vez.");
                             return;
                           }
                         
@@ -539,7 +540,7 @@ export default function StoreDetail() {
                           );
 
                           if (alreadyHasAppointmentItem) {
-                            alert("Você só pode agendar um serviço ou pacote por vez.");
+                            toast.error("Você só pode agendar um serviço ou pacote por vez.");
                             return;
                           }
 

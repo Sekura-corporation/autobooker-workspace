@@ -1,4 +1,5 @@
 import api from "@/services/api";
+import toast from "react-hot-toast";
 import { useEffect, useState } from "react";
 import { listVehicles } from "@/services/vehicles.service";
 import { useNavigate } from "react-router-dom";
@@ -473,17 +474,17 @@ export default function Checkout() {
                   const serviceItem = items[0];
               
                   if (!checkoutData.vehicle?.id) {
-                    alert("Selecione um veículo válido.");
+                    toast.error("Selecione um veículo válido.");
                     return;
                   }
               
                   if (!storeInfo?.id) {
-                    alert("Loja inválida.");
+                    toast.error("Loja inválida.");
                     return;
                   }
               
                   if (!serviceItem?.id) {
-                    alert("Serviço inválido.");
+                    toast.error("Serviço inválido.");
                     return;
                   }
               
@@ -497,7 +498,7 @@ export default function Checkout() {
                   
                   clearCart();
                   
-                  alert("Agendamento criado com sucesso!");
+                  toast.success("Agendamento criado com sucesso!");
               
                   navigate(`/${ROLE_BASE_PATHS.client}/agendamentos`);
                 } catch (error: any) {
@@ -505,9 +506,9 @@ export default function Checkout() {
                   console.error("Status:", error?.response?.status);
                   console.error("Resposta da API:", error?.response?.data);
                 
-                  alert(
+                  toast.error(
                     error?.response?.data?.message ||
-                    "Erro ao criar agendamento"
+                    "Erro ao criar agendamento",
                   );
                 }
               }}

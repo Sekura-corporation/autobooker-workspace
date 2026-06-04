@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import toast from "react-hot-toast";
 import api from "@/services/api";
 import PageHeader from "@/components/shared/PageHeader";
 import Card from "@/components/ui/Card";
@@ -6,6 +7,7 @@ import Button from "@/components/ui/Button";
 import StockHistoryModal from "./modals/StockHistoryModal";
 import CreateStockItemModal from "./modals/CreateStockItemModal";
 import StockMovementModal from "./modals/StockMovementModal";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 type StockStatus = "repor" | "ok";
 
@@ -57,6 +59,7 @@ export default function StoreStock() {
   );
 
   const [loading, setLoading] = useState(true);
+  const [itemToDelete, setItemToDelete] = useState<number | null>(null);
 
   useEffect(() => {
     loadStock();
@@ -71,7 +74,7 @@ export default function StoreStock() {
       setStockItems(data.data || []);
     } catch (error) {
       console.error("Erro ao carregar estoque:", error);
-      alert("Erro ao carregar estoque.");
+      toast.error("Erro ao carregar estoque.");
     } finally {
       setLoading(false);
     }
@@ -92,24 +95,20 @@ export default function StoreStock() {
     });
   }, [stockItems, searchTerm, statusFilter, typeFilter]);
 
-  async function handleDeleteItem(id: number) {
-    const confirmed = confirm("Tem certeza que deseja excluir este item do estoque?");
-  
-    if (!confirmed) return;
-  
+  async function confirmDeleteItem() {
+    if (itemToDelete === null) return;
+
     try {
-      await api.delete(`/store/stock/items/${id}`);
-  
-      alert("Item excluído com sucesso!");
-  
+      await api.delete(`/store/stock/items/${itemToDelete}`);
+      toast.success("Item excluído com sucesso!");
       await loadStock();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro ao excluir item:", error);
-  
-      alert(
-        error?.response?.data?.message ||
-          "Erro ao excluir item."
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(
+        err.response?.data?.message || "Erro ao excluir item.",
       );
+      throw error;
     }
   }
 
@@ -153,6 +152,16 @@ export default function StoreStock() {
         onClose={() => setSelectedItem(null)}
         item={selectedItem}
         onCreated={loadStock}
+      />
+
+      <ConfirmDialog
+        isOpen={itemToDelete !== null}
+        onClose={() => setItemToDelete(null)}
+        onConfirm={confirmDeleteItem}
+        title="Excluir item"
+        message="Tem certeza que deseja excluir este item do estoque? Essa ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        variant="danger"
       />
 
       <div className="border-t border-zinc-300 pt-5">
@@ -284,7 +293,7 @@ export default function StoreStock() {
                         <Button
                           variant="outline"
                           className="!rounded-md !py-1.5 !px-4 text-sm !border-red-600 !text-red-600 hover:!bg-red-50"
-                          onClick={() => handleDeleteItem(item.id)}
+                          onClick={() => setItemToDelete(item.id)}
                         >
                           Excluir
                         </Button>

@@ -2,10 +2,14 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/shared/PageHeader";
 import ChangePlanModal from "./modals/ChangePlanModal";
+import AvatarUpload from "@/components/ui/AvatarUpload";
 import { useEffect, useState } from "react";
 import api from "@/services/api";
+import { useAuth } from "@/hooks/useAuth";
+import toast from "react-hot-toast";
 
 export default function StoreProfile() {
+  const { user, updateUser } = useAuth();
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
 
   const [storeData, setStoreData] = useState({
@@ -60,10 +64,10 @@ export default function StoreProfile() {
   async function handleSave() {
     try {
       await api.put("/store/profile", storeData);
-      alert("Perfil atualizado com sucesso!");
+      toast.success("Perfil atualizado com sucesso!");
     } catch (error) {
       console.error("Erro ao salvar perfil:", error);
-      alert("Erro ao salvar perfil.");
+      toast.error("Erro ao salvar perfil.");
     }
   }
 
@@ -83,6 +87,22 @@ export default function StoreProfile() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
         <div className="flex flex-col gap-8">
+          <Card className="p-6 md:p-8 shadow-sm">
+            <h2 className="text-xl font-bold text-zinc-900 mb-6">Sua conta</h2>
+            <div className="flex items-center gap-4 mb-6 pb-6 border-b border-zinc-200">
+              <AvatarUpload
+                name={user?.name ?? ""}
+                avatar={user?.avatar}
+                size="lg"
+                onAvatarChange={(avatar) => updateUser({ avatar })}
+              />
+              <div>
+                <p className="font-bold text-zinc-900">{user?.name}</p>
+                <p className="text-sm text-zinc-500">{user?.email}</p>
+              </div>
+            </div>
+          </Card>
+
           <Card className="p-6 md:p-8 shadow-sm">
             <h2 className="text-xl font-bold text-zinc-900 mb-6">
               Dados da Empresa

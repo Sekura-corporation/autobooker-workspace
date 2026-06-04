@@ -2,14 +2,18 @@ import { useEffect, useState } from "react";
 import api from "@/services/api";
 import { listAppointments } from "@/services/appointments.service";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/useToast";
 import PageWrapper from "@/components/layout/PageWrapper";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { Mail, Phone, User } from "lucide-react";
+import AvatarUpload from "@/components/ui/AvatarUpload";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 export default function ClientProfile() {
   const { user, updateUser, logout } = useAuth();
+  const toast = useToast();
   const [formData, setFormData] = useState({
     name: user?.name || "",
     email: user?.email || "",
@@ -18,6 +22,7 @@ export default function ClientProfile() {
   });
   const [appointmentCount, setAppointmentCount] = useState(0);
   const [memberSince, setMemberSince] = useState("Não informado");
+  const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
 
   useEffect(() => {
     async function loadProfileData() {
@@ -37,6 +42,10 @@ export default function ClientProfile() {
           );
         }
   
+        if (data.avatar !== user?.avatar) {
+          updateUser({ avatar: data.avatar ?? null });
+        }
+
         setFormData((prev) => ({
           ...prev,
           name: data.name ?? user?.name ?? "",
@@ -71,10 +80,10 @@ export default function ClientProfile() {
         phone: data.phone ?? formData.phone,
       });
   
-      alert("Perfil atualizado com sucesso!");
+      toast.success("Perfil atualizado com sucesso!");
     } catch (error) {
       console.error("Erro ao atualizar perfil:", error);
-      alert("Erro ao atualizar perfil.");
+      toast.error("Erro ao atualizar perfil.");
     }
   };
 
@@ -88,19 +97,14 @@ export default function ClientProfile() {
   };
 
   const handleDeleteAccount = async () => {
-    const confirmDelete = confirm(
-      "Tem certeza que deseja deletar sua conta? Essa ação não pode ser desfeita.",
-    );
-  
-    if (!confirmDelete) return;
-  
     try {
       await api.delete("/auth/profile");
       await logout();
-      alert("Conta deletada com sucesso.");
+      toast.success("Conta deletada com sucesso.");
     } catch (error) {
       console.error("Erro ao deletar conta:", error);
-      alert("Erro ao deletar conta.");
+      toast.error("Erro ao deletar conta.");
+      throw error;
     }
   };
 
@@ -117,6 +121,21 @@ export default function ClientProfile() {
             <h2 className="text-2xl font-bold text-gray-900 mb-6">
               Dados Pessoais
             </h2>
+
+            <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-200">
+              <AvatarUpload
+                name={formData.name || user?.name || ""}
+                avatar={user?.avatar}
+                size="lg"
+                onAvatarChange={(avatar) => updateUser({ avatar })}
+              />
+              <div>
+                <p className="font-semibold text-gray-900">
+                  {formData.name || user?.name}
+                </p>
+                <p className="text-sm text-gray-500">{formData.email}</p>
+              </div>
+            </div>
 
             <div className="space-y-4">
               <div>
@@ -253,13 +272,22 @@ export default function ClientProfile() {
             <Button
               variant="outline"
               className="w-full border-red-600 text-red-600"
-              onClick={handleDeleteAccount}
+              onClick={() => setIsDeleteAccountOpen(true)}
             >
               Deletar Conta
             </Button>
           </Card>
         </div>
       </div>
+      <ConfirmDialog
+        isOpen={isDeleteAccountOpen}
+        onClose={() => setIsDeleteAccountOpen(false)}
+        onConfirm={handleDeleteAccount}
+        title="Deletar conta"
+        message="Tem certeza que deseja deletar sua conta? Essa ação não pode ser desfeita."
+        confirmLabel="Deletar conta"
+        variant="danger"
+      />
     </PageWrapper>
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { Plus, Calendar, CheckCircle, Info } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
@@ -185,7 +186,7 @@ export default function AdminStores() {
 
   const handleRegisterSubmit = () => {
     if (!formData.name || !formData.cnpj || !formData.owner) {
-      alert("Preencha todos os campos obrigatórios!");
+      toast.error("Preencha todos os campos obrigatórios!");
       return;
     }
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import api from "@/services/api";
 import { X } from "lucide-react";
 import Button from "@/components/ui/Button";
@@ -39,7 +40,7 @@ export default function CreateStockItemModal({
     event.preventDefault();
 
     if (!itemName.trim()) {
-      alert("Informe o nome do item.");
+      toast.error("Informe o nome do item.");
       return;
     }
 
@@ -54,7 +55,7 @@ export default function CreateStockItemModal({
         sale_price: category === "product" && salePrice ? Number(salePrice) : null,
       });
 
-      alert("Item cadastrado com sucesso!");
+      toast.success("Item cadastrado com sucesso!");
 
       resetForm();
 
@@ -65,7 +66,7 @@ export default function CreateStockItemModal({
       onClose();
     } catch (error: any) {
       console.error("Erro ao cadastrar item:", error);
-      alert(error?.response?.data?.message || "Erro ao cadastrar item.");
+      toast.error(error?.response?.data?.message || "Erro ao cadastrar item.");
     } finally {
       setLoading(false);
     }

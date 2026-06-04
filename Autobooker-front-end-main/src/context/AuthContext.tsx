@@ -5,6 +5,7 @@ export interface User {
   name: string;
   email: string;
   phone?: string;
+  avatar?: string | null;
   role: "admin" | "store" | "client";
   tenantId?: string;
   storeId?: string;

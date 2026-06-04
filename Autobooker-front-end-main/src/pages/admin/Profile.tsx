@@ -3,7 +3,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import {
   Bell,
-  Camera,
   KeyRound,
   Lock,
   ShieldCheck,
@@ -14,7 +13,7 @@ import PageHeader from "@/components/shared/PageHeader";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
-import Avatar from "@/components/ui/Avatar";
+import AvatarUpload from "@/components/ui/AvatarUpload";
 import Badge from "@/components/ui/Badge";
 import { ROLES } from "@/utils/constants";
 import {
@@ -105,14 +104,6 @@ export default function AdminProfile() {
   const [errors, setErrors] = useState<ProfileErrors>({});
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-
-  const initials = profile.name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
 
   const handleSaveProfile = async () => {
     const nextErrors: ProfileErrors = {};
@@ -227,12 +218,12 @@ export default function AdminProfile() {
           <Card className="p-6">
             <div className="flex items-start justify-between gap-4 mb-6">
               <div className="flex items-center gap-4">
-                <div className="relative">
-                  <Avatar initials={initials || "AD"} size="lg" />
-                  <button className="absolute -bottom-1 -right-1 rounded-full bg-[#820000] p-2 text-white shadow-lg">
-                    <Camera size={14} />
-                  </button>
-                </div>
+                <AvatarUpload
+                  name={profile.name}
+                  avatar={user?.avatar}
+                  size="lg"
+                  onAvatarChange={(avatar) => updateUser({ avatar })}
+                />
                 <div>
                   <h3 className="text-2xl font-black text-zinc-900">
                     {profile.name}

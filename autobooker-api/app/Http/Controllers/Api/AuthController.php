@@ -139,14 +139,7 @@ class AuthController extends Controller
 
     private function userJson(User $user): array
     {
-        return [
-            'id' => (string) $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-            'role' => $user->role ?? 'client',
-            'createdAt' => $user->created_at ? $user->created_at->toISOString() : null,
-            'updatedAt' => $user->updated_at ? $user->updated_at->toISOString() : null,
-        ];
+        return $user->toApiArray();
     }
 
     private function storeJson(Store $store): array

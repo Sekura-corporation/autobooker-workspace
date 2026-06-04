@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import { updateAppointmentStatus } from "@/services/appointments.service";
 import { useEffect } from "react";
 import { listAppointments } from "@/services/appointments.service";
@@ -136,7 +137,7 @@ export default function ClientAppointments() {
       );
     } catch (error) {
       console.error("Erro ao cancelar agendamento", error);
-      alert("Erro ao cancelar agendamento");
+      toast.error("Erro ao cancelar agendamento");
     }
   };
 
@@ -301,7 +302,7 @@ export default function ClientAppointments() {
                 <div className="flex gap-3 pt-2">
                   <Button
                     className="flex-1 bg-[#820000] hover:bg-[#660000] text-white rounded-lg shadow-sm font-bold py-2 flex items-center justify-center gap-2 text-sm"
-                    onClick={() => alert("Entrando em contato...")}
+                    onClick={() => toast.success("Entrando em contato...")}
                   >
                     <Phone className="w-4 h-4" />
                     Atendente

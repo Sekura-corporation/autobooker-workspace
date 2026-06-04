@@ -57,6 +57,31 @@ export async function logout(): Promise<void> {
   }
 }
 
+export async function uploadAvatar(file: File): Promise<User> {
+  const formData = new FormData();
+  formData.append("avatar", file);
+
+  const { data } = await api.post<{ user: User; message: string }>(
+    "/auth/avatar",
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
+
+  return data.user;
+}
+
+export async function removeAvatar(): Promise<User> {
+  const { data } = await api.delete<{ user: User; message: string }>(
+    "/auth/avatar",
+  );
+
+  return data.user;
+}
+
 export async function requestPasswordRecovery(
   payload: PasswordRecoveryRequestPayload,
 ): Promise<{ message: string }> {
@@ -82,6 +107,8 @@ const authService = {
   register,
   me,
   logout,
+  uploadAvatar,
+  removeAvatar,
   requestPasswordRecovery,
   confirmPasswordRecovery,
 };

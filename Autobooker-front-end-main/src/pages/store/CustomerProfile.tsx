@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import toast from "react-hot-toast";
 import api from "@/services/api";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -55,7 +56,7 @@ export default function StoreCustomerProfile() {
         setProfile(response.data.data);
       } catch (error) {
         console.error("Erro ao carregar cliente:", error);
-        alert("Erro ao carregar dados do cliente.");
+        toast.error("Erro ao carregar dados do cliente.");
       } finally {
         setLoading(false);
       }

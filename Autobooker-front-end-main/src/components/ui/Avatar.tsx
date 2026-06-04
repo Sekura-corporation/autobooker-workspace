@@ -1,4 +1,4 @@
-import type { ImgHTMLAttributes } from "react";
+import { useEffect, useState, type ImgHTMLAttributes } from "react";
 
 interface AvatarProps extends ImgHTMLAttributes<HTMLImageElement> {
   initials?: string;
@@ -14,18 +14,25 @@ export default function Avatar({
   className = "",
   ...props
 }: AvatarProps) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [src]);
+
   const sizeClasses = {
     sm: "w-8 h-8 text-xs",
     md: "w-10 h-10 text-sm",
     lg: "w-14 h-14 text-lg",
   };
 
-  if (src) {
+  if (src && !imageFailed) {
     return (
       <img
         src={src}
-        alt="Avatar"
+        alt={initials ? `Avatar de ${initials}` : "Avatar"}
         className={`rounded-full object-cover ${sizeClasses[size]} ${className}`}
+        onError={() => setImageFailed(true)}
         {...props}
       />
     );

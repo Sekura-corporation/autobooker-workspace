@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import {
   Plus,
   Calendar,
@@ -137,7 +138,7 @@ export default function AdminUsers() {
 
   const handleRegisterSubmit = () => {
     if (!formData.name || !formData.email) {
-      alert("Preencha todos os campos obrigatórios!");
+      toast.error("Preencha todos os campos obrigatórios!");
       return;
     }
 

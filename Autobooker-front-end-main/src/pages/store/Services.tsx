@@ -8,6 +8,7 @@ import NewServiceModal, {
 } from "./modals/NewServiceModal";
 import api from "@/services/api";
 import { useToast } from "@/hooks/useToast";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 type ApiService = {
   id: string;
@@ -83,6 +84,8 @@ export default function StoreServices() {
     null,
   );
   const [modalSubmitting, setModalSubmitting] = useState(false);
+  const [serviceToDeactivate, setServiceToDeactivate] =
+    useState<ServiceRow | null>(null);
 
   async function fetchServices() {
     setLoading(true);
@@ -166,16 +169,11 @@ export default function StoreServices() {
     }
   };
 
-  const handleDelete = async (row: ServiceRow) => {
-    if (
-      !window.confirm(
-        `Desativar o serviço "${row.name}"? Ele deixará de aparecer para novos agendamentos.`,
-      )
-    ) {
-      return;
-    }
+  const confirmDeactivateService = async () => {
+    if (!serviceToDeactivate) return;
+
     try {
-      await api.delete(`/store/services/${row.id}`);
+      await api.delete(`/store/services/${serviceToDeactivate.id}`);
       toastSuccess("Serviço desativado.");
       await fetchServices();
     } catch (err: unknown) {
@@ -183,6 +181,7 @@ export default function StoreServices() {
         (err as { response?: { data?: { message?: string } } })?.response?.data
           ?.message ?? "Não foi possível desativar o serviço.";
       toastError(message);
+      throw err;
     }
   };
 
@@ -280,7 +279,7 @@ export default function StoreServices() {
                           </Button>
                           <Button
                             variant="outline"
-                            onClick={() => void handleDelete(service)}
+                            onClick={() => setServiceToDeactivate(service)}
                             className="!rounded-md !py-1.5 !px-3 text-sm text-red-700 border-red-200 hover:bg-red-50"
                           >
                             Excluir
@@ -303,6 +302,20 @@ export default function StoreServices() {
         initialService={editingService}
         onSubmit={handleModalSubmit}
         isSubmitting={modalSubmitting}
+      />
+
+      <ConfirmDialog
+        isOpen={serviceToDeactivate !== null}
+        onClose={() => setServiceToDeactivate(null)}
+        onConfirm={confirmDeactivateService}
+        title="Desativar serviço"
+        message={
+          serviceToDeactivate
+            ? `Desativar o serviço "${serviceToDeactivate.name}"? Ele deixará de aparecer para novos agendamentos.`
+            : ""
+        }
+        confirmLabel="Desativar"
+        variant="danger"
       />
     </div>
   );

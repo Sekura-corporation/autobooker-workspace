@@ -12,6 +12,9 @@ import {
 import logoSvg from "@/assets/logo-autobooker.svg";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import Avatar from "@/components/ui/Avatar";
+import { getInitials } from "@/utils/formatters";
+import { resolveAvatarUrl } from "@/utils/avatar";
 import { ROLE_BASE_PATHS } from "@/utils/constants";
 
 interface SidebarProps {
@@ -134,12 +137,12 @@ export default function Sidebar({
           {/* User Profile Section */}
           <div className="px-3 py-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
             <div className="flex items-center gap-3">
-              <div
-                style={{ background: "var(--brand-primary)" }}
-                className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
-              >
-                {user?.name.charAt(0).toUpperCase()}
-              </div>
+              <Avatar
+                src={resolveAvatarUrl(user?.avatar)}
+                initials={getInitials(user?.name)}
+                size="md"
+                className="shrink-0"
+              />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">
                   {user?.name}

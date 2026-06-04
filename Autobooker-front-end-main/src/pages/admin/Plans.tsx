@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import {
   Plus,
   CreditCard,
@@ -242,7 +243,7 @@ export default function AdminPlans() {
 
   const handleSubmit = () => {
     if (!formData.name || !formData.price || !formData.description) {
-      alert("Preencha nome, preço e descrição do plano.");
+      toast.error("Preencha nome, preço e descrição do plano.");
       return;
     }
 
