@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/useToast";
 import { AuthLayout } from "../../components/layout/AuthLayout";
@@ -12,18 +12,53 @@ export default function RecoverCode() {
   const { error: toastError, success: toastSuccess } = useToast();
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [isLoading, setIsLoading] = useState(false);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const codeValue = useMemo(() => code.join(""), [code]);
 
   const handleChange = (index: number, value: string) => {
-    const nextValue = value.replace(/\D/g, "").slice(0, 1);
+    const nextValue = value.replace(/\D/g, "").slice(-1);
     setCode((prev) => {
       const next = [...prev];
       next[index] = nextValue;
       return next;
     });
 
-    // Auto-focus next input logic can be added here if desired
+    // Auto-focus next input
+    if (nextValue && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace") {
+      if (!code[index] && index > 0) {
+        setCode((prev) => {
+          const next = [...prev];
+          next[index - 1] = "";
+          return next;
+        });
+        inputRefs.current[index - 1]?.focus();
+      }
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasteData = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (pasteData.length === 0) return;
+
+    const newCode = [...code];
+    for (let i = 0; i < 6; i++) {
+      if (pasteData[i] !== undefined) {
+        newCode[i] = pasteData[i];
+      }
+    }
+    setCode(newCode);
+
+    // Focus the last populated input or the last input
+    const targetIndex = Math.min(pasteData.length, 5);
+    inputRefs.current[targetIndex]?.focus();
   };
 
   const handleResend = async () => {
@@ -76,9 +111,12 @@ export default function RecoverCode() {
         {code.map((item, index) => (
           <input
             key={index}
+            ref={(el) => (inputRefs.current[index] = el)}
             maxLength={1}
             value={item}
             onChange={(e) => handleChange(index, e.target.value)}
+            onKeyDown={(e) => handleKeyDown(index, e)}
+            onPaste={handlePaste}
             className="w-full aspect-square bg-zinc-200 text-zinc-900 text-center text-xl font-bold rounded-xl focus:ring-2 focus:ring-red-500 focus:outline-none"
           />
         ))}
