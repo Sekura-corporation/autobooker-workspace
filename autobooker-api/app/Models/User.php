@@ -57,7 +57,7 @@ class User extends Authenticatable
 
     public function toApiArray(): array
     {
-        return [
+        $data = [
             'id' => (string) $this->id,
             'name' => $this->name,
             'email' => $this->email,
@@ -67,6 +67,13 @@ class User extends Authenticatable
             'createdAt' => $this->created_at ? $this->created_at->toISOString() : null,
             'updatedAt' => $this->updated_at ? $this->updated_at->toISOString() : null,
         ];
+
+        if ($this->isStoreOwner()) {
+            $store = $this->storesOwned()->first();
+            $data['storeStatus'] = $store ? $store->status : 'none';
+        }
+
+        return $data;
     }
 
     public function resolveAvatarUrl(): ?string

@@ -4,7 +4,7 @@ import PageHeader from "@/components/shared/PageHeader";
 import ChangePlanModal from "./modals/ChangePlanModal";
 import AvatarUpload from "@/components/ui/AvatarUpload";
 import { useEffect, useState } from "react";
-import api from "@/services/api";
+import { getStoreProfile, uploadStoreImage, updateStoreProfile } from "@/services/storeProfile.service";
 import { useAuth } from "@/hooks/useAuth";
 import toast from "react-hot-toast";
 
@@ -55,6 +55,9 @@ export default function StoreProfile() {
     opening_hours: "",
     logo_url: "",
     banner_url: "",
+    plan_id: null as number | null,
+    plan_name: "",
+    plan_price: "",
   });
 
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklySchedule>(DEFAULT_SCHEDULE);
@@ -62,8 +65,7 @@ export default function StoreProfile() {
   useEffect(() => {
     async function loadProfile() {
       try {
-        const response = await api.get("/store/profile");
-        const rawStore = response.data.data;
+        const rawStore = await getStoreProfile();
 
         setStoreData({
           name: rawStore.name || "",
@@ -78,6 +80,9 @@ export default function StoreProfile() {
           opening_hours: rawStore.opening_hours || "",
           logo_url: rawStore.logo_url || "",
           banner_url: rawStore.banner_url || "",
+          plan_id: rawStore.plan_id ?? null,
+          plan_name: rawStore.plan?.name || "",
+          plan_price: rawStore.plan?.price || "",
         });
 
         const rawHours = rawStore.opening_hours;
@@ -187,10 +192,18 @@ export default function StoreProfile() {
   async function handleSave() {
     try {
       const payload = {
-        ...storeData,
+        name: storeData.name,
+        cnpj: storeData.cnpj,
+        phone: storeData.phone,
+        email: storeData.email,
+        address: storeData.address,
+        city: storeData.city,
+        state: storeData.state,
+        zip_code: storeData.zip_code,
+        description: storeData.description,
         opening_hours: JSON.stringify(weeklySchedule),
       };
-      await api.put("/store/profile", payload);
+      await updateStoreProfile(payload);
       toast.success("Perfil atualizado com sucesso!");
     } catch (error) {
       console.error("Erro ao salvar perfil:", error);
@@ -209,26 +222,21 @@ export default function StoreProfile() {
     formData.append(type, file);
 
     try {
-      const response = await api.post("/store/profile/upload", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
+      const updatedStore = await uploadStoreImage(formData);
+      const urlKey = type === "logo" ? "logo_url" : "banner_url";
       setStoreData((prev) => ({
         ...prev,
-        [`${type}_url`]: response.data.data[`${type}_url`],
+        [`${type}_url`]: updatedStore[urlKey],
       }));
-
-      alert(
-        `${type === "logo" ? "Logotipo" : "Banner"} atualizado com sucesso!`
-      );
+      toast.success(`${type === "logo" ? "Logotipo" : "Banner"} atualizado com sucesso!`);
     } catch (error) {
       console.error("Erro ao fazer upload da imagem:", error);
-      alert(
-        "Erro ao enviar a imagem. Verifique se o formato está correto (PNG, JPG, WebP) e se o tamanho é menor que o limite (2MB para logo, 4MB para banner)."
-      );
+      toast.error("Erro ao enviar a imagem. Verifique o formato (PNG, JPG, WebP) e o tamanho.");
     }
+  }
+
+  function handlePlanChanged(planName: string) {
+    setStoreData((prev) => ({ ...prev, plan_name: planName }));
   }
 
   return (
@@ -536,11 +544,19 @@ export default function StoreProfile() {
           <Card className="p-6 md:p-8 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-zinc-900">Plano Atual</h2>
-              <div className="flex items-center justify-center px-4 py-1.5 rounded-full border border-[#2e8b57] bg-green-50/50">
-                <span className="text-[10px] font-bold text-[#2e8b57] tracking-widest">
-                  ASSINATURA ATIVA
-                </span>
-              </div>
+              {storeData.plan_id ? (
+                <div className="flex items-center justify-center px-4 py-1.5 rounded-full border border-[#2e8b57] bg-green-50/50">
+                  <span className="text-[10px] font-bold text-[#2e8b57] tracking-widest">
+                    ASSINATURA ATIVA
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center px-4 py-1.5 rounded-full border border-amber-400 bg-amber-50">
+                  <span className="text-[10px] font-bold text-amber-600 tracking-widest">
+                    SEM PLANO
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="mb-4">
@@ -549,13 +565,15 @@ export default function StoreProfile() {
               </label>
               <input
                 type="text"
-                value="Plano Premium Integrado"
+                value={storeData.plan_name || "Nenhum plano ativo"}
                 disabled
                 className="w-full rounded-md border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-600 bg-zinc-100 cursor-not-allowed mb-2"
               />
-              <p className="text-xs text-zinc-500 font-medium mt-3">
-                Próxima renovação em: 15/11/2023
-              </p>
+              {storeData.plan_price && (
+                <p className="text-xs text-zinc-500 font-medium mt-2">
+                  R$ {parseFloat(storeData.plan_price).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} / mês
+                </p>
+              )}
             </div>
 
             <Button
@@ -563,7 +581,7 @@ export default function StoreProfile() {
               onClick={() => setIsPlanModalOpen(true)}
               className="w-full mt-6 !border-[#820000] !text-[#820000] hover:bg-[#820000]/10 font-bold py-3 !rounded-md"
             >
-              Alterar Plano
+              {storeData.plan_id ? "Alterar Plano" : "Escolher Plano"}
             </Button>
           </Card>
         </div>
@@ -572,6 +590,7 @@ export default function StoreProfile() {
       <ChangePlanModal
         isOpen={isPlanModalOpen}
         onClose={() => setIsPlanModalOpen(false)}
+        onPlanChanged={handlePlanChanged}
       />
     </div>
   );

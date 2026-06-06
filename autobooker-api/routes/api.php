@@ -22,6 +22,14 @@ use App\Http\Controllers\Api\StoreReportController;
 use App\Http\Controllers\Api\StoreStockController;
 use App\Http\Controllers\Api\StorePackageController;
 
+// Admin controllers
+use App\Http\Controllers\Api\AdminDashboardController;
+use App\Http\Controllers\Api\AdminStoreController;
+use App\Http\Controllers\Api\AdminUserController;
+use App\Http\Controllers\Api\AdminPlanController;
+use App\Http\Controllers\Api\AdminPartnershipController;
+use App\Http\Controllers\Api\AdminSettingController;
+
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/register-store-owner', [AuthController::class, 'registerStoreOwner']);
@@ -80,6 +88,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/store/packages', [StorePackageController::class, 'store']);
         Route::put('/store/packages/{package}', [StorePackageController::class, 'update']);
         Route::delete('/store/packages/{package}', [StorePackageController::class, 'destroy']);
+
+        // Simulated plan subscription
+        Route::put('/store/plan', [StoreProfileController::class, 'subscribeToPlan']);
     });
 
     Route::middleware('auth:sanctum')->get('/loyalty', [LoyaltyController::class, 'index']);
@@ -120,6 +131,7 @@ Route::middleware('auth:sanctum')->group(function () {
     
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,'.$user->id],
             'phone' => ['nullable', 'string', 'max:20'],
         ]);
     
@@ -127,6 +139,8 @@ Route::middleware('auth:sanctum')->group(function () {
     
         return response()->json($user);
     });
+
+    Route::put('/auth/password', [AuthController::class, 'changePassword']);
 
     Route::delete('/auth/profile', function (Request $request) {
         $user = $request->user();
@@ -143,3 +157,36 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 });
 
+// ============================================================
+// Admin Routes (auth:sanctum + role:admin)
+// ============================================================
+Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(function () {
+
+    // Dashboard
+    Route::get('/dashboard', [AdminDashboardController::class, 'index']);
+
+    // Stores management
+    Route::get('/stores', [AdminStoreController::class, 'index']);
+    Route::get('/stores/{store}', [AdminStoreController::class, 'show']);
+    Route::post('/stores/{store}/approve', [AdminStoreController::class, 'approve']);
+    Route::post('/stores/{store}/reject', [AdminStoreController::class, 'reject']);
+
+    // Users management
+    Route::get('/users', [AdminUserController::class, 'index']);
+    Route::get('/users/{user}', [AdminUserController::class, 'show']);
+    Route::post('/users/{user}/toggle-block', [AdminUserController::class, 'toggleBlock']);
+
+    // Plans CRUD
+    Route::apiResource('plans', AdminPlanController::class);
+
+    // Partnerships CRUD
+    Route::apiResource('partnerships', AdminPartnershipController::class);
+
+    // System Settings
+    Route::get('/settings', [AdminSettingController::class, 'index']);
+    Route::put('/settings', [AdminSettingController::class, 'update']);
+    Route::get('/settings/{key}', [AdminSettingController::class, 'show']);
+});
+
+// Public plans list (for store owner plan selection screen)
+Route::middleware('auth:sanctum')->get('/plans', [AdminPlanController::class, 'index']);

@@ -114,6 +114,24 @@ export async function confirmPasswordRecovery(
   return data;
 }
 
+export async function updateProfile(payload: {
+  name: string;
+  email: string;
+  phone?: string;
+}): Promise<User> {
+  const { data } = await api.put<User>("/auth/profile", payload);
+  return data;
+}
+
+export async function changePassword(payload: {
+  current_password: string;
+  new_password: string;
+  new_password_confirmation: string;
+}): Promise<{ message: string }> {
+  const { data } = await api.put<{ message: string }>("/auth/password", payload);
+  return data;
+}
+
 const authService = { 
   login,
   register,
@@ -124,6 +142,8 @@ const authService = {
   requestPasswordRecovery,
   verifyPasswordRecoveryCode,
   confirmPasswordRecovery,
+  updateProfile,
+  changePassword,
 };
 
 export default authService; // Auth service

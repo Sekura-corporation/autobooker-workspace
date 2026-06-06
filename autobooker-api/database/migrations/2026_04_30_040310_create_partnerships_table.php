@@ -13,6 +13,18 @@ return new class extends Migration
     {
         Schema::create('partnerships', function (Blueprint $table) {
             $table->id();
+            $table->string('store_name');
+            $table->string('partner_name');
+            $table->string('partner_type');
+            $table->string('region')->nullable();
+            $table->string('contact_name');
+            $table->string('contact_email');
+            $table->string('contact_phone');
+            $table->integer('discount_percent');
+            $table->string('status')->default('pending'); // active, pending, paused, cancelled
+            $table->date('start_date');
+            $table->json('benefits')->nullable(); // Array de benefícios vinculados
+            $table->text('notes')->nullable();
             $table->timestamps();
         });
     }
