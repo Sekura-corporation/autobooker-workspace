@@ -162,7 +162,7 @@ export default function ClientAppointments() {
 
   const handleContactStore = (phone: string | undefined, serviceName: string) => {
     if (!phone) {
-      alert("Telefone de contato não disponível para esta estética.");
+      toast.error("Telefone de contato não disponível para esta estética.");
       return;
     }
 
