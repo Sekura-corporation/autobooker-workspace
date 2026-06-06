@@ -3,13 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Plan;
 use Illuminate\Http\Request;
 
 class StoreProfileController extends Controller
 {
     public function show(Request $request)
     {
-        $store = $request->user()->storesOwned()->first();
+        $store = $request->user()->storesOwned()->with('plan:id,name,price')->first();
 
         if (!$store) {
             return response()->json([
@@ -99,6 +100,45 @@ class StoreProfileController extends Controller
             'success' => true,
             'message' => 'Imagens atualizadas com sucesso.',
             'data' => $store
+        ]);
+    }
+
+    /**
+     * Subscribe the store owner's store to a plan (simulated checkout).
+     */
+    public function subscribeToPlan(Request $request)
+    {
+        $store = $request->user()->storesOwned()->first();
+
+        if (!$store) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Loja não encontrada.',
+            ], 404);
+        }
+
+        $data = $request->validate([
+            'plan_id'          => 'required|integer|exists:plans,id',
+            'payment_method'   => 'required|in:pix_simulado,cartao_simulado',
+        ]);
+
+        $plan = Plan::where('id', $data['plan_id'])
+            ->where('status', 'active')
+            ->first();
+
+        if (!$plan) {
+            return response()->json([
+                'success' => false,
+                'message' => 'O plano selecionado não está disponível.',
+            ], 422);
+        }
+
+        $store->update(['plan_id' => $plan->id]);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Plano \"{$plan->name}\" ativado com sucesso via " . ($data['payment_method'] === 'pix_simulado' ? 'PIX simulado' : 'Cartão simulado') . '.',
+            'data'    => $store->fresh()->load('plan'),
         ]);
     }
 }

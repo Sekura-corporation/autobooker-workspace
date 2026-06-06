@@ -1,6 +1,9 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { PrivateRoute } from "./PrivateRoute";
+import { useAuth } from "@/hooks/useAuth";
 
+import PendingApproval from "@/pages/store/PendingApproval";
+import RejectedApproval from "@/pages/store/RejectedApproval";
 import StoreDashboard from "@/pages/store/Dashboard";
 import StoreAgenda from "@/pages/store/Agenda";
 import StoreAppointmentDetail from "@/pages/store/AppointmentDetail";
@@ -14,6 +17,17 @@ import StoreLoyalty from "@/pages/store/Loyalty";
 import StoreProfile from "@/pages/store/StoreProfile";
 
 export default function StoreRoutes() {
+  const { user } = useAuth();
+
+  if (user?.role === "store" || user?.role === "store_owner") {
+    if (user?.storeStatus === "pending") {
+      return <PendingApproval />;
+    }
+    if (user?.storeStatus === "rejected") {
+      return <RejectedApproval />;
+    }
+  }
+
   return (
     <Routes>
       <Route index element={<Navigate to="/loja/dashboard" replace />} />

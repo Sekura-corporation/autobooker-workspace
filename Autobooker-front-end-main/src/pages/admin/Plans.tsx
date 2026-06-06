@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import {
   Plus,
@@ -21,6 +21,13 @@ import Input from "@/components/ui/Input";
 import StatusBadge from "@/components/shared/StatusBadge";
 import Modal from "@/components/ui/Modal";
 import Card from "@/components/ui/Card";
+import {
+  listAdminPlans,
+  createAdminPlan,
+  updateAdminPlan,
+  deleteAdminPlan,
+  type AdminPlan,
+} from "@/services/admin.service";
 
 type PlanStatus = "active" | "pending" | "paused" | "cancelled";
 type BillingCycle = "monthly" | "yearly";
@@ -67,84 +74,7 @@ const BILLING_LABELS: Record<BillingCycle, string> = {
   yearly: "Anual",
 };
 
-const MOCK_PLANS: Plan[] = [
-  {
-    id: 1,
-    name: "Plano Pro",
-    price: 99.9,
-    billingCycle: "monthly",
-    setupFee: 0,
-    platformCommission: 0,
-    commissionType: "fixed",
-    storeLimit: 1,
-    appointmentLimit: "Ilimitado",
-    supportLevel: "Suporte padrão",
-    description:
-      "Plano de entrada para lojas individuais que estão começando a digitalizar a operação.",
-    features: [
-      "Agenda ilimitada",
-      "Até 3 funcionários",
-      "Controle de estoque básico",
-      "Alertas por e-mail",
-    ],
-    revenueModel: ["Assinatura recorrente", "Renovação automática"],
-    status: "active",
-    isFeatured: false,
-    createdAt: "2025-01-10",
-  },
-  {
-    id: 2,
-    name: "Plano Master",
-    price: 497.9,
-    billingCycle: "monthly",
-    setupFee: 149,
-    platformCommission: 5,
-    commissionType: "percentage",
-    storeLimit: 5,
-    appointmentLimit: "Ilimitado",
-    supportLevel: "Suporte prioritário",
-    description:
-      "Ideal para redes regionais e operações com múltiplos colaboradores e serviços.",
-    features: [
-      "Até 10 funcionários",
-      "Automação de cobrança",
-      "Relatórios avançados",
-      "Integração com parceiros",
-    ],
-    revenueModel: [
-      "Assinatura mensal",
-      "Taxa de ativação",
-      "Comissão sobre parceiros",
-    ],
-    status: "active",
-    isFeatured: true,
-    createdAt: "2025-03-02",
-  },
-  {
-    id: 3,
-    name: "Plano Plus",
-    price: 997.9,
-    billingCycle: "monthly",
-    setupFee: 299,
-    platformCommission: 8,
-    commissionType: "percentage",
-    storeLimit: 20,
-    appointmentLimit: "Ilimitado",
-    supportLevel: "Suporte premium",
-    description:
-      "Plano de alta escala para redes maiores que querem crescimento e automação completa.",
-    features: [
-      "Funcionários ilimitados",
-      "Multi-lojas",
-      "Dashboard financeiro",
-      "Suporte premium",
-    ],
-    revenueModel: ["Assinatura premium", "Taxa de setup", "Receita por volume"],
-    status: "pending",
-    isFeatured: false,
-    createdAt: "2025-04-18",
-  },
-];
+const MOCK_PLANS: AdminPlan[] = [];
 
 const EMPTY_FORM: PlanFormData = {
   name: "",
@@ -166,22 +96,41 @@ const EMPTY_FORM: PlanFormData = {
 export default function AdminPlans() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [plans, setPlans] = useState(MOCK_PLANS);
-  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+  const [plans, setPlans] = useState<AdminPlan[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState<AdminPlan | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<PlanFormData>(EMPTY_FORM);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const fetchPlans = async () => {
+    setLoading(true);
+    try {
+      const data = await listAdminPlans();
+      setPlans(data);
+    } catch (error) {
+      toast.error("Erro ao carregar planos");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPlans();
+  }, []);
 
   const filteredPlans = plans.filter((plan) => {
     const searchValue = searchTerm.toLowerCase();
-    const matchesSearch =
-      plan.name.toLowerCase().includes(searchValue) ||
-      plan.description.toLowerCase().includes(searchValue) ||
-      plan.features.some((feature) =>
-        feature.toLowerCase().includes(searchValue),
-      );
+    const nameMatch = plan.name?.toLowerCase().includes(searchValue) || false;
+    const descMatch = plan.description?.toLowerCase().includes(searchValue) || false;
+    const featureMatch = plan.features?.some((feature) =>
+        feature?.toLowerCase().includes(searchValue)
+    ) || false;
+    
+    const matchesSearch = nameMatch || descMatch || featureMatch;
     const matchesStatus =
       statusFilter === "all" || plan.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -191,11 +140,11 @@ export default function AdminPlans() {
   const pendingPlans = plans.filter((plan) => plan.status === "pending").length;
   const averagePrice =
     plans.length > 0
-      ? plans.reduce((sum, plan) => sum + plan.price, 0) / plans.length
+      ? plans.reduce((sum, plan) => sum + parseFloat(plan.price || "0"), 0) / plans.length
       : 0;
   const monthlyRevenue = plans
     .filter((plan) => plan.status === "active")
-    .reduce((sum, plan) => sum + plan.price, 0);
+    .reduce((sum, plan) => sum + parseFloat(plan.price || "0"), 0);
 
   const resetForm = () => {
     setFormData(EMPTY_FORM);
@@ -203,104 +152,128 @@ export default function AdminPlans() {
     setSelectedPlan(null);
   };
 
+  const handleNumberChange = (field: keyof PlanFormData, value: string) => {
+    const digits = value.replace(/\D/g, "");
+    setFormData((prev) => ({ ...prev, [field]: digits }));
+  };
+
+  const handleCurrencyChange = (field: keyof PlanFormData, value: string) => {
+    let clean = value.replace(/[^\d.]/g, "");
+    const parts = clean.split(".");
+    if (parts.length > 2) {
+      clean = parts[0] + "." + parts.slice(1).join("");
+    }
+    setFormData((prev) => ({ ...prev, [field]: clean }));
+  };
+
   const openCreateModal = () => {
     resetForm();
     setIsFormModalOpen(true);
   };
 
-  const openEditModal = (plan: Plan) => {
+  const openEditModal = (plan: AdminPlan) => {
     setSelectedPlan(plan);
     setIsEditing(true);
     setFormData({
       name: plan.name,
-      price: String(plan.price),
-      billingCycle: plan.billingCycle,
-      setupFee: String(plan.setupFee),
-      platformCommission: String(plan.platformCommission),
-      commissionType: plan.commissionType,
-      storeLimit: String(plan.storeLimit),
-      appointmentLimit: plan.appointmentLimit,
-      supportLevel: plan.supportLevel,
+      price: plan.price ? String(plan.price) : "0",
+      billingCycle: plan.billing_cycle as BillingCycle,
+      setupFee: plan.setup_fee ? String(plan.setup_fee) : "0",
+      platformCommission: plan.platform_commission ? String(plan.platform_commission) : "0",
+      commissionType: plan.commission_type as "fixed" | "percentage",
+      storeLimit: plan.store_limit ? String(plan.store_limit) : "1",
+      appointmentLimit: plan.appointment_limit,
+      supportLevel: plan.support_level,
       description: plan.description,
-      features: plan.features.join(", "),
-      revenueModel: plan.revenueModel.join(", "),
+      features: plan.features?.join(", ") || "",
+      revenueModel: plan.revenue_model?.join(", ") || "",
       status: plan.status,
-      isFeatured: Boolean(plan.isFeatured),
+      isFeatured: Boolean(plan.is_featured),
     });
     setIsDetailModalOpen(false);
     setIsFormModalOpen(true);
   };
 
-  const openDetailsModal = (plan: Plan) => {
+  const openDetailsModal = (plan: AdminPlan) => {
     setSelectedPlan(plan);
     setIsDetailModalOpen(true);
   };
 
-  const openDeleteModal = (plan: Plan) => {
+  const openDeleteModal = (plan: AdminPlan) => {
     setSelectedPlan(plan);
     setIsDeleteModalOpen(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.name || !formData.price || !formData.description) {
       toast.error("Preencha nome, preço e descrição do plano.");
       return;
     }
+    setActionLoading(true);
 
-    const payload: Plan = {
-      id:
-        isEditing && selectedPlan
-          ? selectedPlan.id
-          : Math.max(...plans.map((item) => item.id), 0) + 1,
+    const payload: Partial<AdminPlan> = {
       name: formData.name,
-      price: Number(formData.price),
-      billingCycle: formData.billingCycle,
-      setupFee: Number(formData.setupFee || 0),
-      platformCommission: Number(formData.platformCommission || 0),
-      commissionType: formData.commissionType,
-      storeLimit: Number(formData.storeLimit || 1),
-      appointmentLimit: formData.appointmentLimit,
-      supportLevel: formData.supportLevel,
+      price: String(Number(formData.price)),
+      billing_cycle: formData.billingCycle,
+      setup_fee: String(Number(formData.setupFee || 0)),
+      platform_commission: String(Number(formData.platformCommission || 0)),
+      commission_type: formData.commissionType,
+      store_limit: Number(formData.storeLimit || 1),
+      appointment_limit: formData.appointmentLimit,
+      support_level: formData.supportLevel,
       description: formData.description,
       features: formData.features
         .split(",")
         .map((item) => item.trim())
         .filter(Boolean),
-      revenueModel: formData.revenueModel
+      revenue_model: formData.revenueModel
         .split(",")
         .map((item) => item.trim())
         .filter(Boolean),
       status: formData.status,
-      isFeatured: formData.isFeatured,
-      createdAt:
-        isEditing && selectedPlan
-          ? selectedPlan.createdAt
-          : new Date().toISOString().split("T")[0],
-      updatedAt: new Date().toISOString().split("T")[0],
+      is_featured: formData.isFeatured,
     };
 
-    setPlans((prev) =>
-      isEditing && selectedPlan
-        ? prev.map((item) => (item.id === selectedPlan.id ? payload : item))
-        : [payload, ...prev],
-    );
+    try {
+      if (isEditing && selectedPlan) {
+        const updated = await updateAdminPlan(selectedPlan.id, payload);
+        setPlans((prev) => prev.map((item) => (item.id === selectedPlan.id ? updated : item)));
+        toast.success("Plano atualizado com sucesso!");
+      } else {
+        const created = await createAdminPlan(payload);
+        setPlans((prev) => [created, ...prev]);
+        toast.success("Plano criado com sucesso!");
+      }
 
-    setIsFormModalOpen(false);
-    resetForm();
+      setIsFormModalOpen(false);
+      resetForm();
+    } catch (err) {
+      toast.error("Erro ao salvar plano.");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleDeletePlan = () => {
+  const handleDeletePlan = async () => {
     if (!selectedPlan) {
       return;
     }
-
-    setPlans((prev) => prev.filter((item) => item.id !== selectedPlan.id));
-    setIsDeleteModalOpen(false);
-    setIsDetailModalOpen(false);
-    setSelectedPlan(null);
+    setActionLoading(true);
+    try {
+      await deleteAdminPlan(selectedPlan.id);
+      setPlans((prev) => prev.filter((item) => item.id !== selectedPlan.id));
+      toast.success("Plano apagado com sucesso.");
+      setIsDeleteModalOpen(false);
+      setIsDetailModalOpen(false);
+      setSelectedPlan(null);
+    } catch (err) {
+      toast.error("Erro ao apagar plano.");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const togglePlanStatus = (plan: Plan) => {
+  const togglePlanStatus = async (plan: AdminPlan) => {
     const nextStatus: PlanStatus =
       plan.status === "active"
         ? "paused"
@@ -308,29 +281,29 @@ export default function AdminPlans() {
           ? "active"
           : "active";
 
-    const today = new Date().toISOString().split("T")[0];
-    setPlans((prev) =>
-      prev.map((item) =>
-        item.id === plan.id
-          ? { ...item, status: nextStatus, updatedAt: today }
-          : item,
-      ),
-    );
-
-    setSelectedPlan((prev) =>
-      prev && prev.id === plan.id
-        ? { ...prev, status: nextStatus, updatedAt: today }
-        : prev,
-    );
+    try {
+      const updated = await updateAdminPlan(plan.id, { status: nextStatus });
+      setPlans((prev) =>
+        prev.map((item) =>
+          item.id === plan.id
+            ? updated
+            : item,
+        ),
+      );
+      toast.success(`Plano ${nextStatus === "active" ? "ativado" : "pausado"}`);
+    } catch (err) {
+      toast.error("Erro ao mudar status do plano.");
+    }
   };
 
-  const revenueGain = (plan: Plan) => {
-    const setup = plan.setupFee;
-    const monthly = plan.price;
+  const revenueGain = (plan: AdminPlan) => {
+    const setup = parseFloat(plan.setup_fee || "0");
+    const monthly = parseFloat(plan.price || "0");
+    const commissionVal = parseFloat(plan.platform_commission || "0");
     const commissionText =
-      plan.commissionType === "percentage"
-        ? `${plan.platformCommission}% sobre parceiros`
-        : `R$ ${plan.platformCommission.toFixed(2)} fixo por transação`;
+      plan.commission_type === "percentage"
+        ? `${commissionVal}% sobre parceiros`
+        : `R$ ${commissionVal.toFixed(2)} fixo por transação`;
 
     return { setup, monthly, commissionText };
   };
@@ -425,11 +398,16 @@ export default function AdminPlans() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-        {filteredPlans.map((plan) => {
-          const revenue = revenueGain(plan);
-          const cycleLabel = BILLING_LABELS[plan.billingCycle];
+        {loading ? (
+          <div className="col-span-full py-16 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#820000]"></div>
+          </div>
+        ) : (
+          filteredPlans.map((plan) => {
+            const revenue = revenueGain(plan);
+            const cycleLabel = BILLING_LABELS[plan.billing_cycle as BillingCycle] || "Mensal";
 
-          return (
+            return (
             <Card
               key={plan.id}
               variant="default"
@@ -479,7 +457,7 @@ export default function AdminPlans() {
                         Valor mensal
                       </p>
                       <p className="mt-1 text-3xl font-black text-[#820000]">
-                        R$ {plan.price.toFixed(2)}
+                        R$ {parseFloat(plan.price || "0").toFixed(2)}
                       </p>
                     </div>
                     <div className="text-right">
@@ -498,7 +476,7 @@ export default function AdminPlans() {
                         Lojas
                       </p>
                       <p className="mt-1 text-base font-bold text-zinc-900">
-                        {plan.storeLimit}
+                        {plan.store_limit}
                       </p>
                     </div>
                     <div className="rounded-xl bg-zinc-50 p-3 ring-1 ring-zinc-100">
@@ -506,9 +484,9 @@ export default function AdminPlans() {
                         Comissão
                       </p>
                       <p className="mt-1 text-base font-bold text-zinc-900">
-                        {plan.commissionType === "percentage"
-                          ? `${plan.platformCommission}%`
-                          : `R$ ${plan.platformCommission.toFixed(2)}`}
+                        {plan.commission_type === "percentage"
+                          ? `${parseFloat(plan.platform_commission || "0")}%`
+                          : `R$ ${parseFloat(plan.platform_commission || "0").toFixed(2)}`}
                       </p>
                     </div>
                   </div>
@@ -516,7 +494,7 @@ export default function AdminPlans() {
                   <div className="mt-5 space-y-3">
                     <div className="flex items-center gap-2 text-sm text-zinc-600">
                       <Store size={16} className="text-[#820000] shrink-0" />
-                      <span>{plan.supportLevel}</span>
+                      <span>{plan.support_level}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-zinc-600">
                       <HandCoins
@@ -528,7 +506,7 @@ export default function AdminPlans() {
                   </div>
 
                   <div className="mt-5 flex flex-wrap gap-2">
-                    {plan.features.slice(0, 4).map((feature) => (
+                    {(plan.features || []).slice(0, 4).map((feature) => (
                       <span
                         key={feature}
                         className="inline-flex items-center rounded-full bg-[#820000]/8 px-3 py-1 text-xs font-semibold text-zinc-700"
@@ -588,7 +566,8 @@ export default function AdminPlans() {
               </div>
             </Card>
           );
-        })}
+          })
+        )}
       </div>
 
       <Modal
@@ -635,11 +614,9 @@ export default function AdminPlans() {
             <Input
               label="Preço base"
               placeholder="497.90"
-              type="number"
+              type="text"
               value={formData.price}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, price: e.target.value }))
-              }
+              onChange={(e) => handleCurrencyChange("price", e.target.value)}
             />
           </div>
 
@@ -665,20 +642,16 @@ export default function AdminPlans() {
             <Input
               label="Taxa de adesão"
               placeholder="149.90"
-              type="number"
+              type="text"
               value={formData.setupFee}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, setupFee: e.target.value }))
-              }
+              onChange={(e) => handleCurrencyChange("setupFee", e.target.value)}
             />
             <Input
               label="Lojas incluídas"
               placeholder="5"
-              type="number"
+              type="text"
               value={formData.storeLimit}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, storeLimit: e.target.value }))
-              }
+              onChange={(e) => handleNumberChange("storeLimit", e.target.value)}
             />
           </div>
 
@@ -704,14 +677,9 @@ export default function AdminPlans() {
             <Input
               label="Valor da comissão"
               placeholder="5"
-              type="number"
+              type="text"
               value={formData.platformCommission}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  platformCommission: e.target.value,
-                }))
-              }
+              onChange={(e) => handleCurrencyChange("platformCommission", e.target.value)}
             />
           </div>
 
@@ -914,7 +882,7 @@ export default function AdminPlans() {
                   Valor mensal
                 </p>
                 <p className="text-lg font-black text-zinc-900">
-                  R$ {selectedPlan.price.toFixed(2)}
+                  R$ {parseFloat(selectedPlan.price || "0").toFixed(2)}
                 </p>
               </div>
               <div className="bg-zinc-50 rounded-lg p-4">
@@ -922,7 +890,7 @@ export default function AdminPlans() {
                   Adesão
                 </p>
                 <p className="text-lg font-black text-zinc-900">
-                  R$ {selectedPlan.setupFee.toFixed(2)}
+                  R$ {parseFloat(selectedPlan.setup_fee || "0").toFixed(2)}
                 </p>
               </div>
               <div className="bg-zinc-50 rounded-lg p-4">
@@ -930,9 +898,9 @@ export default function AdminPlans() {
                   Comissão
                 </p>
                 <p className="text-lg font-black text-zinc-900">
-                  {selectedPlan.commissionType === "percentage"
-                    ? `${selectedPlan.platformCommission}%`
-                    : `R$ ${selectedPlan.platformCommission.toFixed(2)}`}
+                  {selectedPlan.commission_type === "percentage"
+                    ? `${parseFloat(selectedPlan.platform_commission || "0")}%`
+                    : `R$ ${parseFloat(selectedPlan.platform_commission || "0").toFixed(2)}`}
                 </p>
               </div>
               <div className="bg-zinc-50 rounded-lg p-4">
@@ -940,7 +908,7 @@ export default function AdminPlans() {
                   Ciclo
                 </p>
                 <p className="text-lg font-black text-zinc-900">
-                  {BILLING_LABELS[selectedPlan.billingCycle]}
+                  {BILLING_LABELS[selectedPlan.billing_cycle as BillingCycle]}
                 </p>
               </div>
             </div>
@@ -951,7 +919,7 @@ export default function AdminPlans() {
                   Limite de lojas
                 </p>
                 <p className="text-sm font-semibold text-blue-900">
-                  {selectedPlan.storeLimit} loja(s)
+                  {selectedPlan.store_limit} loja(s)
                 </p>
               </div>
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
@@ -959,7 +927,7 @@ export default function AdminPlans() {
                   Limite de agendamentos
                 </p>
                 <p className="text-sm font-semibold text-amber-900">
-                  {selectedPlan.appointmentLimit}
+                  {selectedPlan.appointment_limit}
                 </p>
               </div>
             </div>
@@ -969,7 +937,7 @@ export default function AdminPlans() {
                 Recursos do plano
               </p>
               <div className="flex flex-wrap gap-2">
-                {selectedPlan.features.map((feature) => (
+                {(selectedPlan.features || []).map((feature) => (
                   <span
                     key={feature}
                     className="inline-flex items-center rounded-full bg-[#820000]/10 px-3 py-1 text-xs font-semibold text-[#820000]"
@@ -985,7 +953,7 @@ export default function AdminPlans() {
                 Como a plataforma ganha
               </p>
               <div className="space-y-2">
-                {selectedPlan.revenueModel.map((rule) => (
+                {(selectedPlan.revenue_model || []).map((rule) => (
                   <div key={rule} className="flex items-start gap-3">
                     <HandCoins
                       size={16}
@@ -1007,8 +975,8 @@ export default function AdminPlans() {
                     Receita recorrente
                   </p>
                   <p className="text-sm font-black text-zinc-900">
-                    R$ {selectedPlan.price.toFixed(2)} /{" "}
-                    {BILLING_LABELS[selectedPlan.billingCycle]}
+                    R$ {parseFloat(selectedPlan.price || "0").toFixed(2)} /{" "}
+                    {BILLING_LABELS[selectedPlan.billing_cycle as BillingCycle]}
                   </p>
                 </div>
                 <div className="bg-zinc-50 rounded-lg p-4">
@@ -1016,7 +984,7 @@ export default function AdminPlans() {
                     Receita inicial
                   </p>
                   <p className="text-sm font-black text-zinc-900">
-                    R$ {selectedPlan.setupFee.toFixed(2)}
+                    R$ {parseFloat(selectedPlan.setup_fee || "0").toFixed(2)}
                   </p>
                 </div>
                 <div className="bg-zinc-50 rounded-lg p-4">
@@ -1024,9 +992,9 @@ export default function AdminPlans() {
                     Comissão estratégica
                   </p>
                   <p className="text-sm font-black text-zinc-900">
-                    {selectedPlan.commissionType === "percentage"
-                      ? `${selectedPlan.platformCommission}% sobre parceiros`
-                      : `R$ ${selectedPlan.platformCommission.toFixed(2)} por transação`}
+                    {selectedPlan.commission_type === "percentage"
+                      ? `${parseFloat(selectedPlan.platform_commission || "0")}% sobre parceiros`
+                      : `R$ ${parseFloat(selectedPlan.platform_commission || "0").toFixed(2)} por transação`}
                   </p>
                 </div>
               </div>
@@ -1082,7 +1050,7 @@ export default function AdminPlans() {
               </p>
               <p className="text-xs text-red-900">
                 {selectedPlan
-                  ? `${selectedPlan.name} - R$ ${selectedPlan.price.toFixed(2)}`
+                  ? `${selectedPlan.name} - R$ ${parseFloat(selectedPlan.price || "0").toFixed(2)}`
                   : "O plano selecionado"}
               </p>
             </div>

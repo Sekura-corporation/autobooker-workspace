@@ -76,17 +76,18 @@ class AuthController extends Controller
             ]);
 
             $store = Store::create([
-                'owner_id' => $user->id,
-                'name' => $storeInput['name'],
-                'cnpj' => $storeInput['cnpj'] ?? null,
-                'phone' => $storeInput['phone'] ?? null,
-                'email' => $storeInput['email'] ?? null,
-                'address' => $storeInput['address'] ?? null,
-                'city' => $storeInput['city'] ?? null,
-                'state' => $storeInput['state'] ?? null,
-                'zip_code' => $storeInput['zip_code'] ?? null,
-                'description' => $storeInput['description'] ?? null,
+                'owner_id'      => $user->id,
+                'name'          => $storeInput['name'],
+                'cnpj'          => $storeInput['cnpj'] ?? null,
+                'phone'         => $storeInput['phone'] ?? null,
+                'email'         => $storeInput['email'] ?? null,
+                'address'       => $storeInput['address'] ?? null,
+                'city'          => $storeInput['city'] ?? null,
+                'state'         => $storeInput['state'] ?? null,
+                'zip_code'      => $storeInput['zip_code'] ?? null,
+                'description'   => $storeInput['description'] ?? null,
                 'opening_hours' => $storeInput['opening_hours'] ?? null,
+                'status'        => 'pending', // Aguardando aprovação do admin
             ]);
 
             $token = $user->createToken('autobooker_token')->plainTextToken;
@@ -113,6 +114,12 @@ class AuthController extends Controller
         if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Credenciais inválidas.'],
+            ]);
+        }
+
+        if (!$user->status) {
+            throw ValidationException::withMessages([
+                'email' => ['Esta conta foi bloqueada pelo administrador.'],
             ]);
         }
 
@@ -212,6 +219,27 @@ class AuthController extends Controller
         DB::table('password_reset_tokens')->where('email', $request->email)->delete();
 
         return response()->json(['message' => 'Senha alterada com sucesso.'], 200);
+    }
+
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => ['required', 'string'],
+            'new_password' => ['required', 'string', 'min:6', 'confirmed'],
+        ]);
+
+        $user = $request->user();
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['A senha atual está incorreta.'],
+            ]);
+        }
+
+        $user->password = Hash::make($request->new_password);
+        $user->save();
+
+        return response()->json(['message' => 'Senha alterada com sucesso.']);
     }
 
     private function userJson(User $user): array

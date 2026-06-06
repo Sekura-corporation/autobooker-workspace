@@ -10,6 +10,7 @@ export interface User {
   tenantId?: string;
   storeId?: string;
   permissions?: string[];
+  storeStatus?: string; // 'active', 'pending', 'rejected', 'none'
 }
 
 export interface AuthContextType {

@@ -666,6 +666,7 @@ export default function StoreDetail() {
                             name: product.name,
                             price: product.price,
                             quantity: 1,
+                            stock: product.quantity,
                           });
 
                           if (!addedItems.includes(cartKey)) {

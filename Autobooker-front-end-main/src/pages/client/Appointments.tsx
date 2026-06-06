@@ -1,9 +1,11 @@
+import api from "@/services/api";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { updateAppointmentStatus } from "@/services/appointments.service";
 import { useEffect } from "react";
 import { listAppointments } from "@/services/appointments.service";
 import { useNavigate } from "react-router-dom";
+import { listProductOrders } from "@/services/product-orders.service";  
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -22,10 +24,16 @@ import {
 export default function ClientAppointments() {
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [loyaltyRules, setLoyaltyRules] = useState<
+    Record<number, { spentValue: number; pointsValue: number }>
+  >({});
   useEffect(() => {
     async function fetchAppointments() {
       try {
-        const data = await listAppointments();
+        const [data, productOrders] = await Promise.all([
+          listAppointments(),
+          listProductOrders(),
+        ]);
   
         const normalized = data.map((apt: any) => {
           const serviceObj = typeof apt.service === "object" ? apt.service : null;
@@ -51,6 +59,7 @@ export default function ClientAppointments() {
           return {
             ...apt,
             scheduledAt,
+            storeId: apt.store_id ?? apt.storeId ?? apt.store?.id ?? storeObj?.id,
         
             service:
               serviceObj?.name ??
@@ -97,8 +106,27 @@ export default function ClientAppointments() {
               "",
           };
         });
+
+        const normalizedProductOrders = productOrders.map((order: any) => ({
+          id: `order-${order.id}`,
+          status: "completed",
+          scheduledAt: order.created_at,
+          service:
+            order.items?.map((item: any) => {
+              return `${item.product?.name || "Produto"} x${item.quantity}`;
+            }).join(", ") || "Compra na lojinha",
+          storeName: order.store?.name || "Loja selecionada",
+          vehicle: "Produto físico",
+          plate: "",
+          duration: "Retirada/compra no local",
+          price: Number(order.total_price || 0),
+          loyaltyPoints: 0,
+          hasPickup: false,
+          storePhone: order.store?.phone || "",
+          isProductOrder: true,
+        }));
   
-        setAppointments(normalized);
+        setAppointments([...normalized, ...normalizedProductOrders]);
       } catch (error) {
         console.error("Erro ao buscar agendamentos", error);
       }
@@ -106,6 +134,41 @@ export default function ClientAppointments() {
   
     fetchAppointments();
   }, []);
+
+  useEffect(() => {
+  async function fetchLoyaltyRules() {
+    const storeIds = appointments
+      .map((appointment) => appointment.storeId)
+      .filter(Boolean);
+
+    const uniqueStoreIds = Array.from(new Set(storeIds));
+
+    if (uniqueStoreIds.length === 0) {
+      return;
+    }
+
+    const rules: Record<number, { spentValue: number; pointsValue: number }> = {};
+
+    await Promise.all(
+      uniqueStoreIds.map(async (storeId) => {
+        try {
+          const { data } = await api.get(`/stores/${storeId}/loyalty`);
+
+          rules[Number(storeId)] = {
+            spentValue: Number(data.data.rule.spent_value || 1),
+            pointsValue: Number(data.data.rule.points_value || 1),
+          };
+        } catch (error) {
+          console.error("Erro ao buscar regra de fidelidade:", error);
+        }
+      }),
+    );
+
+    setLoyaltyRules(rules);
+  }
+
+  fetchLoyaltyRules();
+}, [appointments]);
 
   // Separar agendamentos por status
   const activeAppointments = appointments.filter(
@@ -148,16 +211,38 @@ export default function ClientAppointments() {
   };
 
   // Calcular total com taxa e coleta
+  // O preço do agendamento já vem salvo com taxa e coleta incluídas
   const calculateTotal = (apt: ClientAppointmentItem) => {
-    const subtotal = apt.price;
-    const serviceFee = subtotal * 0.1; // 10%
+    const total = Number(apt.price || 0);
+
     const pickupCost = apt.hasPickup ? 25 : 0;
+    const subtotal = (total - pickupCost) / 1.1;
+    const serviceFee = subtotal * 0.1;
+
     return {
       subtotal,
       serviceFee,
       pickupCost,
-      total: subtotal + serviceFee + pickupCost,
+      total,
     };
+  };
+
+  const calculateLoyaltyPoints = (apt: ClientAppointmentItem) => {
+    const storeId = Number(apt.storeId);
+  
+    if (!storeId) {
+      return 0;
+    }
+  
+    const rule = loyaltyRules[storeId];
+  
+    if (!rule) {
+      return 0;
+    }
+  
+    const total = calculateTotal(apt).total;
+  
+    return Math.floor((total / rule.spentValue) * rule.pointsValue);
   };
 
   const handleContactStore = (phone: string | undefined, serviceName: string) => {
@@ -318,7 +403,7 @@ export default function ClientAppointments() {
                         <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                         <p className="text-xs text-amber-900 font-medium">
                           <strong>
-                            +{activeAppointment.loyaltyPoints} Pontos Fidelidade
+                            +{calculateLoyaltyPoints(activeAppointment)} Pontos Fidelidade
                           </strong>{" "}
                           nesta visita.
                         </p>

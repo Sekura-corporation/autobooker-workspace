@@ -27,7 +27,7 @@ class Store extends Model
     ];
 
     protected $casts = [
-        'status' => 'boolean',
+        // 'status' => 'boolean', // removido pois agora é string
     ];
 
     public function owner(): BelongsTo
@@ -38,5 +38,10 @@ class Store extends Model
     public function services(): HasMany
     {
         return $this->hasMany(Service::class);
+    }
+
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class, 'plan_id');
     }
 }

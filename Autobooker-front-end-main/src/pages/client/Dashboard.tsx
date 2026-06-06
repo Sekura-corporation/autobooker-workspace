@@ -46,7 +46,63 @@ export default function ClientDashboard() {
           api.get("/loyalty"),
         ]);
 
-        setAppointments(appointmentsData);
+        const normalizedAppointments = appointmentsData.map((apt: any) => {
+          const serviceObj = typeof apt.service === "object" ? apt.service : null;
+          const storeObj = typeof apt.store === "object" ? apt.store : null;
+          const vehicleObj = typeof apt.vehicle === "object" ? apt.vehicle : null;
+        
+          const scheduledAt =
+            apt.scheduledAt ??
+            apt.scheduled_at ??
+            `${apt.appointment_date}T${apt.appointment_time}`;
+        
+          const rawDuration =
+            serviceObj?.duration_minutes ??
+            serviceObj?.duration ??
+            apt.duration ??
+            60;
+        
+          const duration =
+            typeof rawDuration === "string"
+              ? rawDuration.replace(" min min", " min")
+              : `${rawDuration} min`;
+        
+          return {
+            ...apt,
+            scheduledAt,
+        
+            service:
+              serviceObj?.name ??
+              (typeof apt.service === "string" ? apt.service : null) ??
+              apt.serviceName ??
+              apt.service_name ??
+              "Serviço agendado",
+        
+            storeName:
+              storeObj?.name ??
+              apt.storeName ??
+              apt.store_name ??
+              "Loja selecionada",
+        
+            vehicle:
+              vehicleObj?.brand && vehicleObj?.model
+                ? `${vehicleObj.brand} ${vehicleObj.model}`
+                : typeof apt.vehicle === "string"
+                  ? apt.vehicle
+                  : apt.vehicleName ??
+                    apt.vehicle_name ??
+                    "Veículo selecionado",
+        
+            plate:
+              vehicleObj?.plate ??
+              apt.plate ??
+              "",
+        
+            duration,
+          };
+        });
+        
+        setAppointments(normalizedAppointments);
         setVehicles(vehiclesData);
         setNearStores(storesData);
         setLoyaltyPoints(loyaltyData.data.totalPoints || 0);
@@ -69,6 +125,27 @@ export default function ClientDashboard() {
 
   const activeAppointmentsCount = activeAppointments.length;
   const totalVehicles = vehicles.length;
+  const formatAppointmentDateTime = (scheduledAt?: string) => {
+    if (!scheduledAt) {
+      return "Data não informada";
+    }
+  
+    const date = new Date(scheduledAt);
+  
+    if (Number.isNaN(date.getTime())) {
+      return "Data inválida";
+    }
+  
+    return date.toLocaleDateString("pt-BR", {
+      weekday: "long",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }) + `, ${date.toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    })}`;
+  };
 
   const recentHistory = [...appointments]
     .filter((a) => ["completed", "cancelled"].includes(a.status))
@@ -346,7 +423,7 @@ export default function ClientDashboard() {
                     Data Marcada
                   </p>
                   <p className="font-extrabold text-gray-900 text-sm">
-                    Amanhã, 14:00
+                   {formatAppointmentDateTime(selectedAppointment.scheduledAt)}
                   </p>
                 </div>
               </div>
@@ -367,6 +444,7 @@ export default function ClientDashboard() {
                   <p className="font-bold text-gray-900 text-sm flex items-center gap-1.5 bg-white w-max px-2 py-0.5 rounded-md border border-gray-200">
                     <Car className="w-3.5 h-3.5 text-gray-500" />{" "}
                     {selectedAppointment.vehicle}
+                    {selectedAppointment.plate ? ` (${selectedAppointment.plate})` : ""}
                   </p>
                 </div>
                 <div>
@@ -383,8 +461,7 @@ export default function ClientDashboard() {
                     Local
                   </p>
                   <p className="font-bold text-gray-900 text-sm flex items-center gap-1.5">
-                    <Store className="w-3.5 h-3.5 text-gray-500" /> Matrix
-                    Detail
+                    <Store className="w-3.5 h-3.5 text-gray-500" /> {selectedAppointment.storeName}
                   </p>
                 </div>
               </div>

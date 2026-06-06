@@ -35,6 +35,15 @@ interface CheckoutData {
 export default function Checkout() {
   const navigate = useNavigate();
   const { items, storeInfo, getTotal, clearCart } = useCart();
+  const hasProducts = items.some((item) => item.type === "product");
+
+  const hasAppointmentItem = items.some(
+    (item) => item.type === "service" || item.type === "package"
+  );
+
+  const hasOnlyProducts = items.length > 0 && hasProducts && !hasAppointmentItem;
+
+  const canUsePickup = hasAppointmentItem && !hasOnlyProducts;
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [checkoutData, setCheckoutData] = useState<CheckoutData>({
     vehicle: null,
@@ -47,6 +56,10 @@ export default function Checkout() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
 
   const [bookedTimes, setBookedTimes] = useState<string[]>([]);
+  const [loyaltyRule, setLoyaltyRule] = useState({
+    spentValue: 1,
+    pointsValue: 1,
+  });
 
   useEffect(() => {
     async function fetchVehicles() {
@@ -63,6 +76,27 @@ export default function Checkout() {
   
     fetchVehicles();
   }, []);
+
+  useEffect(() => {
+    async function fetchLoyaltyRule() {
+      if (!storeInfo?.id) {
+        return;
+      }
+  
+      try {
+        const { data } = await api.get(`/stores/${storeInfo.id}/loyalty`);
+  
+        setLoyaltyRule({
+          spentValue: Number(data.data.rule.spent_value || 1),
+          pointsValue: Number(data.data.rule.points_value || 1),
+        });
+      } catch (error) {
+        console.error("Erro ao buscar regra de fidelidade:", error);
+      }
+    }
+  
+    fetchLoyaltyRule();
+  }, [storeInfo?.id]);
 
   useEffect(() => {
     async function fetchBookedTimes() {
@@ -90,21 +124,54 @@ export default function Checkout() {
     fetchBookedTimes();
   }, [storeInfo?.id, checkoutData.date]);
 
-  // Mock de horários disponíveis
-  const today = new Date().toISOString().split("T")[0];
+  useEffect(() => {
+    if (hasOnlyProducts) {
+      setStep(3);
+      setCheckoutData((prev) => ({
+        ...prev,
+        vehicle: null,
+        date: "",
+        time: "",
+        pickupRequired: false,
+      }));
+    }
+  }, [hasOnlyProducts]);
+
+  
+  const now = new Date();
+
+  const today =
+    now.getFullYear() +
+    "-" +
+    String(now.getMonth() + 1).padStart(2, "0") +
+    "-" +
+    String(now.getDate()).padStart(2, "0");
+
+  const currentTime =
+    String(now.getHours()).padStart(2, "0") +
+    ":" +
+    String(now.getMinutes()).padStart(2, "0");
 
   const storeTimeSlots = ["09:00", "10:30", "14:00", "15:30", "16:45"];
 
-  const availableTimes = storeTimeSlots.filter(
-    (time) => !bookedTimes.includes(time)
-  );
+  const availableTimes = storeTimeSlots.filter((time) => {
+    const isBooked = bookedTimes.includes(time);
+    const isPastTimeToday =
+      checkoutData.date === today && time <= currentTime;
+
+    return !isBooked && !isPastTimeToday;
+  });
 
   // Custo de coleta
   const pickupCost = 25;
   const total = getTotal();
-  const finalTotal = checkoutData.pickupRequired
-    ? total * 1.1 + pickupCost
-    : total * 1.1;
+  const serviceFee = total * 0.1;
+  const pickupTotal =
+  checkoutData.pickupRequired && canUsePickup ? pickupCost : 0;
+  const finalTotal = total + serviceFee + pickupTotal;
+  const loyaltyPoints = Math.floor(
+    (finalTotal / loyaltyRule.spentValue) * loyaltyRule.pointsValue
+  );
 
   if (items.length === 0) {
     return (
@@ -186,7 +253,7 @@ export default function Checkout() {
       </div>
 
       {/* STEP 1: VEHICLE SELECTION */}
-      {step === 1 && (
+      {step === 1 && hasAppointmentItem && (
         <Card className="p-8 border border-gray-200 rounded-2xl">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">
             Selecione o seu carro
@@ -216,7 +283,10 @@ export default function Checkout() {
             ))}
           </div>
 
-          <Button className="w-full bg-gray-200 text-gray-700 hover:bg-gray-300 font-bold py-3 rounded-lg mb-4">
+          <Button
+            className="w-full bg-gray-200 text-gray-700 hover:bg-gray-300 font-bold py-3 rounded-lg mb-4"
+            onClick={() => navigate(`/${ROLE_BASE_PATHS.client}/veiculos`)}
+          >
             + Quero agendar com um Carro Novo
           </Button>
 
@@ -242,7 +312,7 @@ export default function Checkout() {
       )}
 
       {/* STEP 2: DATE & TIME */}
-      {step === 2 && (
+      {step === 2 && hasAppointmentItem && (
         <Card className="p-8 border border-gray-200 rounded-2xl">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">
             Reserve o Horário
@@ -255,8 +325,8 @@ export default function Checkout() {
               </label>
               <Input
                 type="date"
-                min={today}
                 value={checkoutData.date}
+                min={today}
                 onChange={(e) =>
                   setCheckoutData({
                     ...checkoutData,
@@ -297,30 +367,32 @@ export default function Checkout() {
           </div>
 
           {/* PICKUP OPTION */}
-          <Card className="p-6 border-2 border-dashed border-red-200 bg-red-50 rounded-xl mb-8">
-            <label className="flex items-start gap-4 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={checkoutData.pickupRequired}
-                onChange={(e) =>
-                  setCheckoutData({
-                    ...checkoutData,
-                    pickupRequired: e.target.checked,
-                  })
-                }
-                className="w-5 h-5 mt-1 accent-[#820000]"
-              />
-              <div>
-                <h4 className="font-bold text-gray-900 flex items-center gap-2">
-                  <Truck className="w-5 h-5 text-[#820000]" />
-                  Solicitar Coleta em Domicílio (Leva e Traz)?
-                </h4>
-                <p className="text-sm text-gray-600 mt-1">
-                  Adicional de R$ {pickupCost.toFixed(2)}
-                </p>
-              </div>
-            </label>
-          </Card>
+          {canUsePickup && (
+            <Card className="p-6 border-2 border-dashed border-red-200 bg-red-50 rounded-xl mb-8">
+              <label className="flex items-start gap-4 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={checkoutData.pickupRequired}
+                  onChange={(e) =>
+                    setCheckoutData({
+                      ...checkoutData,
+                      pickupRequired: e.target.checked,
+                    })
+                  }
+                  className="w-5 h-5 mt-1 accent-[#820000]"
+                />
+                <div>
+                  <h4 className="font-bold text-gray-900 flex items-center gap-2">
+                    <Truck className="w-5 h-5 text-[#820000]" />
+                    Solicitar Coleta em Domicílio (Leva e Traz)?
+                  </h4>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Adicional de R$ {pickupCost.toFixed(2)}
+                  </p>
+                </div>
+              </label>
+            </Card>
+          )}
 
           <div className="flex gap-4">
             <Button
@@ -334,7 +406,19 @@ export default function Checkout() {
             <Button
               disabled={!checkoutData.date || !checkoutData.time}
               className="flex-1 bg-[#820000] hover:bg-[#660000] text-white font-bold disabled:opacity-50 rounded-lg"
-              onClick={() => setStep(3)}
+              onClick={() => {
+                if (checkoutData.date < today) {
+                  toast.error("Não é possível agendar para uma data passada.");
+                  return;
+                }
+
+                if (checkoutData.date === today && checkoutData.time <= currentTime) {
+                  toast.error("Não é possível agendar para um horário passado.");
+                  return;
+                }
+
+                setStep(3);
+              }}
             >
               Próximo <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
@@ -349,10 +433,12 @@ export default function Checkout() {
             <CheckCircle className="w-8 h-8 text-green-600 shrink-0 mt-1" />
             <div>
               <h2 className="text-2xl font-bold text-gray-900">
-                Resumo do seu Agendamento
+               {hasOnlyProducts ? "Resumo da sua Compra" : "Resumo do seu Agendamento"}
               </h2>
               <p className="text-gray-600 mt-1">
-                Revise todos os detalhes antes de confirmar
+                {hasOnlyProducts
+                  ? "Revise os produtos antes de finalizar"
+                  : "Revise todos os detalhes antes de confirmar"}
               </p>
             </div>
           </div>
@@ -367,16 +453,19 @@ export default function Checkout() {
                   </p>
                   <p className="font-bold text-gray-900">{storeInfo?.name}</p>
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                    Veículo Escalcado
-                  </p>
-                  <p className="font-bold text-gray-900 flex items-center gap-2">
-                    <Car className="w-4 h-4" />
-                    {checkoutData.vehicle?.name} (Placa:{" "}
-                    {checkoutData.vehicle?.plate})
-                  </p>
-                </div>
+                {hasAppointmentItem && (
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                      Veículo Escalcado
+                    </p>
+                    <p className="font-bold text-gray-900 flex items-center gap-2">
+                      <Car className="w-4 h-4" />
+                      {checkoutData.vehicle?.name} (Placa:{" "}
+                      {checkoutData.vehicle?.plate})
+                    </p>
+                  </div>
+                )}
+                {hasAppointmentItem && (
                 <div>
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                     Data e Horário
@@ -386,6 +475,7 @@ export default function Checkout() {
                     {checkoutData.date} às {checkoutData.time}
                   </p>
                 </div>
+                )}
                 {checkoutData.pickupRequired && (
                   <div>
                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
@@ -401,7 +491,7 @@ export default function Checkout() {
 
               <div className="border-t border-gray-200 pt-6">
                 <h4 className="font-bold text-gray-900 mb-4">
-                  Serviços Agendados
+                 {hasOnlyProducts ? "Produtos da Lojinha" : "Itens Agendados"}
                 </h4>
                 <div className="space-y-3">
                   {items.map((item) => (
@@ -455,7 +545,8 @@ export default function Checkout() {
           <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-8 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
             <p className="text-sm text-blue-900 font-medium">
-              Você ganhará <strong>+50 Pontos Fidelidade</strong> nesta visita.
+              Você ganhará{" "}
+              <strong>+{loyaltyPoints} Pontos Fidelidade</strong> nesta visita.
             </p>
           </div>
 
@@ -463,17 +554,24 @@ export default function Checkout() {
             <Button
               variant="outline"
               className="flex-1 border-[#820000] text-[#820000] hover:bg-red-50 rounded-lg"
-              onClick={() => setStep(2)}
+              onClick={() =>
+                hasOnlyProducts
+                  ? navigate(`/${ROLE_BASE_PATHS.client}/agendamento/carrinho`)
+                  : setStep(2)
+              }
             >
-              Ajustar Horário
+              {hasOnlyProducts ? "Voltar ao Carrinho" : "Ajustar Horário"}
             </Button>
             <Button
               className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-all shadow-lg"
               onClick={async () => {
                 try {
-                  const serviceItem = items[0];
-              
-                  if (!checkoutData.vehicle?.id) {
+                  const serviceItem = items.find(
+                    (item) => item.type === "service" || item.type === "package"
+                  );
+                  const isPackage = serviceItem?.type === "package";
+                  
+                  if (hasAppointmentItem && !checkoutData.vehicle?.id) {
                     toast.error("Selecione um veículo válido.");
                     return;
                   }
@@ -483,17 +581,53 @@ export default function Checkout() {
                     return;
                   }
               
-                  if (!serviceItem?.id) {
-                    toast.error("Serviço inválido.");
+                  if (hasAppointmentItem && !serviceItem?.id) {
+                    toast.error("Serviço ou pacote inválido.");
+                    return;
+                  }
+
+                  if (hasAppointmentItem) {
+                    if (checkoutData.date < today) {
+                      toast.error("Não é possível agendar para uma data passada.");
+                      return;
+                    }
+                  
+                  if (checkoutData.date === today && checkoutData.time <= currentTime) {
+                      toast.error("Não é possível agendar para um horário passado.");
+                      return;
+                    }
+                  }
+
+                  if (hasOnlyProducts) {
+                    await api.post("/store/product-orders", {
+                      store_id: String(storeInfo.id),
+                      items: items.map((item) => ({
+                        product_id: item.id,
+                        quantity: item.quantity,
+                      })),
+                      total_price: finalTotal,
+                    });
+                  
+                    clearCart();
+                  
+                    toast.success("Compra realizada com sucesso!");
+                  
+                    navigate(`/${ROLE_BASE_PATHS.client}/agendamentos`);
                     return;
                   }
               
                   await createAppointment({
                     storeId: String(storeInfo.id),
                     vehicleId: String(checkoutData.vehicle.id),
-                    serviceId: String(serviceItem.id),
+                  
+                    serviceId: isPackage ? null : String(serviceItem?.id),
+                    packageId: isPackage ? String(serviceItem?.id) : null,
+                  
                     scheduledAt: `${checkoutData.date}T${checkoutData.time}:00`,
-                    price: serviceItem.price,
+                    price: finalTotal,
+                    notes: checkoutData.pickupRequired
+                      ? "Coleta em domicílio solicitada. Adicional de R$ 25,00."
+                      : undefined,
                   } as any);
                   
                   clearCart();

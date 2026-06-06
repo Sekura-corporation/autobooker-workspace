@@ -9,6 +9,9 @@ export interface CartItem {
   price: number;
   quantity: number;
   duration?: string;
+
+  // usado somente para produtos da lojinha física
+  stock?: number;
 }
 
 export interface CartContextType {
@@ -35,33 +38,58 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
   } | null>(null);
 
   const addItem = (item: CartItem) => {
-    // Se for produto, pode ter múltiplas unidades
-    if (item.type === "product") {
-      const existingItem = items.find((i) => i.id === item.id);
-      if (existingItem) {
-        setItems(
-          items.map((i) =>
-            i.id === item.id
-              ? { ...i, quantity: i.quantity + item.quantity }
-              : i,
-          ),
-        );
-      } else {
-        setItems([...items, item]);
+    console.log("ITEM ADICIONADO AO CARRINHO:", item);
+  
+    setItems((prev) => {
+      if (item.type === "product") {
+        const existingItem = prev.find((i) => i.id === item.id);
+  
+        if (existingItem) {
+          return prev.map((i) => {
+            if (i.id !== item.id) {
+              return i;
+            }
+  
+            const maxStock = i.stock ?? item.stock ?? 999;
+            const newQuantity = Math.min(
+              i.quantity + item.quantity,
+              maxStock,
+            );
+  
+            return {
+              ...i,
+              quantity: newQuantity,
+              stock: maxStock,
+            };
+          });
+        }
+  
+        const maxStock = item.stock ?? 999;
+  
+        return [
+          ...prev,
+          {
+            ...item,
+            quantity: Math.min(item.quantity, maxStock),
+            stock: maxStock,
+          },
+        ];
       }
-    } else {
-      // Serviços e pacotes não duplicam
-      if (!items.find((i) => i.id === item.id)) {
-        setItems([...items, item]);
+  
+      const alreadyExists = prev.some((i) => i.id === item.id);
+  
+      if (alreadyExists) {
+        return prev;
       }
-    }
-
-    // Atualizar info da loja
+  
+      return [...prev, item];
+    });
+  
     if (item.storeId) {
       setStoreInfo({
         id: item.storeId,
         name: item.storeName,
-        address: item.storeName, // será atualizado depois
+        address: item.storeName,
       });
     }
   };
@@ -73,11 +101,30 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
   const updateQuantity = (id: string, quantity: number) => {
     if (quantity <= 0) {
       removeItem(id);
-    } else {
-      setItems(
-        items.map((item) => (item.id === id ? { ...item, quantity } : item)),
-      );
+      return;
     }
+  
+    setItems(
+      items.map((item) => {
+        if (item.id !== id) {
+          return item;
+        }
+  
+        if (item.type !== "product") {
+          return {
+            ...item,
+            quantity,
+          };
+        }
+  
+        const maxStock = item.stock ?? 999;
+  
+        return {
+          ...item,
+          quantity: Math.min(quantity, maxStock),
+        };
+      }),
+    );
   };
 
   const clearCart = () => {
