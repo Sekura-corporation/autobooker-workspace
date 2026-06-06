@@ -218,6 +218,32 @@ export default function StoreProfile() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validação no frontend
+    const maxSize = type === "logo" ? 2 * 1024 * 1024 : 4 * 1024 * 1024; // 2MB ou 4MB
+    const allowedFormats = ["image/jpeg", "image/png", "image/webp"];
+    const allowedExtensions = [".jpg", ".jpeg", ".png", ".webp"];
+    
+    const fileExtension = file.name.substring(file.name.lastIndexOf("")).toLowerCase();
+
+    console.log(`Arquivo: ${file.name}, Tipo MIME: ${file.type}, Tamanho: ${(file.size / 1024).toFixed(2)}KB, Extensão: ${fileExtension}`);
+
+    // Valida pelo tipo MIME ou pela extensão
+    const isValidByMime = allowedFormats.includes(file.type);
+    const isValidByExtension = allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+    
+    if (!isValidByMime && !isValidByExtension) {
+      toast.error(`Formato inválido (${file.type || "desconhecido"}). Use PNG, JPG ou WebP.`);
+      return;
+    }
+
+    if (file.size > maxSize) {
+      const limitMb = type === "logo" ? 2 : 4;
+      toast.error(
+        `Imagem muito grande. O limite é ${limitMb}MB (sua imagem tem ${(file.size / 1024 / 1024).toFixed(2)}MB)`
+      );
+      return;
+    }
+
     const formData = new FormData();
     formData.append(type, file);
 
@@ -228,10 +254,19 @@ export default function StoreProfile() {
         ...prev,
         [`${type}_url`]: updatedStore[urlKey],
       }));
-      toast.success(`${type === "logo" ? "Logotipo" : "Banner"} atualizado com sucesso!`);
-    } catch (error) {
+
+      toast.success(
+        `${type === "logo" ? "Logotipo" : "Banner"} atualizado com sucesso!`
+      );
+    } catch (error: any) {
       console.error("Erro ao fazer upload da imagem:", error);
-      toast.error("Erro ao enviar a imagem. Verifique o formato (PNG, JPG, WebP) e o tamanho.");
+      
+      // Exibe o erro específico do servidor se disponível
+      const errorMessage = error.response?.data?.message || 
+                          (error.response?.data?.errors ? Object.values(error.response.data.errors).join(", ") : 
+                          "Erro ao enviar a imagem");
+      
+      toast.error(errorMessage);
     }
   }
 
