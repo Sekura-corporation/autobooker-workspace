@@ -172,8 +172,15 @@ php artisan key:generate
 
 php artisan migrate
 
-php artisan serve
+php artisan storage:link
+
+php artisan serve  
 ```
+
+## Caso queira popular o banco automaticamente use:
+
+php artisan migrate:fresh --seed
+
 
 ## Frontend
 
@@ -191,19 +198,6 @@ npm run dev
 
 Projeto desenvolvido pela equipe AutoBooker como atividade acadêmica do curso de Sistemas de Informação.
 
----
-
-# Próximas Implementações
-
-* Painel Administrativo
-* Relatórios avançados
-* Gestão completa de Pacotes VIP
-* Controle de sessões utilizadas por pacote
-* Controle de validade dos pacotes
-* Registro financeiro consolidado
-* Dashboard administrativo
-
----
 
 # Licença
 
