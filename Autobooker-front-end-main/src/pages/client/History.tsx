@@ -3,6 +3,7 @@ import { listAppointments } from "@/services/appointments.service";
 import { listVehicles } from "@/services/vehicles.service";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
+import { listProductOrders } from "@/services/product-orders.service";
 import Modal from "@/components/ui/Modal";
 import {
   Calendar,
@@ -46,9 +47,10 @@ export default function ClientHistory() {
   
   useEffect(() => {
     async function loadHistory() {
-      const [appointmentsData, vehiclesData] = await Promise.all([
+      const [appointmentsData, vehiclesData, productOrders] = await Promise.all([
         listAppointments(),
         listVehicles(),
+        listProductOrders(),
       ]);
   
       const normalizedHistory = appointmentsData
@@ -90,8 +92,40 @@ export default function ClientHistory() {
             ],
           };
         });
+
+        const normalizedProductOrders = productOrders.map((order: any) => {
+          const date = order.created_at ? new Date(order.created_at) : null;
+        
+          const items =
+            order.items?.map((item: any) => ({
+              name: `${item.product?.name || "Produto"} x${item.quantity}`,
+              price: Number(item.total_price || 0),
+            })) || [];
+        
+          return {
+            id: `order-${order.id}`,
+            scheduledAt: order.created_at ?? "",
+            rawDate: order.created_at ? order.created_at.slice(0, 7) : "",
+            date: date ? date.toLocaleDateString("pt-BR") : "",
+            time: date
+              ? date.toLocaleTimeString("pt-BR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "",
+            store: order.store?.name || "Loja selecionada",
+            service: "Compra na lojinha física",
+            vehicle: "Produto físico",
+            price: Number(order.total_price || 0),
+            status: order.status || "completed",
+            location: order.store?.address || "",
+            paymentMethod: "Pagamento não informado",
+            vehicleId: "product-order",
+            items,
+          };
+        });
   
-      setHistoryData(normalizedHistory);
+       setHistoryData([...normalizedHistory, ...normalizedProductOrders]);
       setVehicles(vehiclesData);
     }
   
@@ -111,8 +145,10 @@ export default function ClientHistory() {
     const matchDate =
       !selectedDate ||
       item.rawDate?.startsWith(selectedDate);
-    const matchVehicle =
-      selectedVehicle === "all" || item.vehicleId === selectedVehicle;
+      const matchVehicle =
+      selectedVehicle === "all" ||
+      item.vehicleId === selectedVehicle ||
+      item.vehicleId === "product-order";
     return matchDate && matchVehicle;
   });
 
@@ -142,7 +178,7 @@ export default function ClientHistory() {
       ),
     },
     {
-      header: "Serviço",
+      header: "Item",
       render: (item: HistoryItem) => (
         <span className="text-gray-700">{item.service}</span>
       ),
@@ -161,6 +197,26 @@ export default function ClientHistory() {
       render: (item: HistoryItem) => (
         <span className="font-bold text-gray-900">
           R$ {item.price.toFixed(2)}
+        </span>
+      ),
+    },
+    {
+      header: "Status",
+      render: (item: HistoryItem) => (
+        <span
+          className={`px-3 py-1 rounded-full text-xs font-bold ${
+            item.status === "completed"
+              ? "bg-green-100 text-green-700"
+              : item.status === "cancelled"
+                ? "bg-red-100 text-red-700"
+                : "bg-gray-100 text-gray-700"
+          }`}
+        >
+          {item.status === "completed"
+            ? "Finalizado"
+            : item.status === "cancelled"
+              ? "Cancelado"
+              : item.status}
         </span>
       ),
     },

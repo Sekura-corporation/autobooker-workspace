@@ -20,20 +20,53 @@ class StoreCustomerController extends Controller
             ], 404);
         }
 
-        $customers = DB::table('store_customers')
-            ->join('users', 'store_customers.client_id', '=', 'users.id')
+        // Clientes cadastrados no balcão
+        $manualClientIds = DB::table('store_customers')
+            ->where('store_id', $store->id)
+            ->pluck('client_id');
+
+        // Clientes que já fizeram/agendaram serviço na loja
+        $appointmentClientIds = Appointment::where('store_id', $store->id)
+            ->whereNotNull('client_id')
+            ->pluck('client_id');
+
+        // Junta os dois sem duplicar
+        $clientIds = $manualClientIds
+            ->merge($appointmentClientIds)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($clientIds->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'data' => []
+            ]);
+        }
+
+        $customers = \App\Models\User::query()
+            ->whereIn('users.id', $clientIds)
             ->leftJoin('appointments', function ($join) use ($store) {
                 $join->on('appointments.client_id', '=', 'users.id')
                     ->where('appointments.store_id', '=', $store->id);
             })
-            ->where('store_customers.store_id', $store->id)
             ->select(
                 'users.id',
                 'users.name',
                 'users.email',
                 'users.phone',
                 DB::raw('COUNT(appointments.id) as appointments_count'),
-                DB::raw('COALESCE(SUM(appointments.price), 0) as total_spent'),
+                DB::raw("
+                    COALESCE(
+                        SUM(
+                            CASE 
+                                WHEN appointments.status = 'completed' 
+                                THEN appointments.price 
+                                ELSE 0 
+                            END
+                        ), 
+                    0) as total_spent
+                "),
                 DB::raw('MAX(appointments.appointment_date) as last_appointment')
             )
             ->groupBy('users.id', 'users.name', 'users.email', 'users.phone')

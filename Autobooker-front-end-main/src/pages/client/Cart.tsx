@@ -99,6 +99,11 @@ export default function Cart() {
                     {item.duration && (
                       <p className="text-sm text-gray-600">{item.duration}</p>
                     )}
+                    {item.type === "product" && (
+                      <p className="text-sm text-gray-500">
+                        Estoque disponível: {item.stock ?? 0} un.
+                      </p>
+                    )}
                     <p className="text-lg font-bold text-green-600 mt-2">
                       R$ {item.price.toFixed(2)}
                     </p>
@@ -119,14 +124,21 @@ export default function Cart() {
                           {item.quantity}
                         </span>
                         <button
+                          disabled={item.type === "product" && item.quantity >= (item.stock ?? 0)}
                           onClick={() =>
                             updateQuantity(item.id, item.quantity + 1)
                           }
-                          className="p-2 hover:bg-gray-100"
+                          className="p-2 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Plus className="w-4 h-4 text-gray-600" />
                         </button>
                       </div>
+                    )}
+
+                    {item.type === "product" && item.quantity >= (item.stock ?? 0) && (
+                      <p className="text-xs text-red-600 font-medium">
+                        Limite do estoque atingido.
+                      </p>
                     )}
 
                     <button

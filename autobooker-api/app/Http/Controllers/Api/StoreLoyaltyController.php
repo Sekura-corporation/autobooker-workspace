@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\LoyaltyReward;
 use App\Models\LoyaltySetting;
 use Illuminate\Http\Request;
+use App\Models\Store;
 
 class StoreLoyaltyController extends Controller
 {
@@ -149,6 +150,36 @@ class StoreLoyaltyController extends Controller
             'success' => true,
             'message' => 'Status da recompensa atualizado.',
             'data' => $reward,
+        ]);
+    }
+
+    public function publicShow($storeId)
+    {
+        $store = Store::find($storeId);
+
+        if (!$store) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Loja não encontrada.'
+            ], 404);
+        }
+
+        $setting = LoyaltySetting::firstOrCreate(
+            ['store_id' => $store->id],
+            [
+                'spent_value' => 1,
+                'points_value' => 1,
+            ]
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'rule' => [
+                    'spent_value' => $setting->spent_value,
+                    'points_value' => $setting->points_value,
+                ],
+            ],
         ]);
     }
 }

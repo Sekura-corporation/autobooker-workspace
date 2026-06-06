@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\Store;
 use App\Models\Vehicle;
 use App\Models\Service;
+use App\Models\PackageModel;
 
 class Appointment extends Model
 {
@@ -15,6 +16,7 @@ class Appointment extends Model
         'store_id',
         'vehicle_id',
         'service_id',
+        'package_id',
         'appointment_date',
         'appointment_time',
         'status',
@@ -45,5 +47,10 @@ class Appointment extends Model
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class);
+    }
+
+    public function package()
+    {
+        return $this->belongsTo(PackageModel::class, 'package_id');
     }
 }

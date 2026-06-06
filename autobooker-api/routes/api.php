@@ -21,6 +21,8 @@ use App\Http\Controllers\Api\StoreLoyaltyController;
 use App\Http\Controllers\Api\StoreReportController;
 use App\Http\Controllers\Api\StoreStockController;
 use App\Http\Controllers\Api\StorePackageController;
+use App\Http\Controllers\Api\ProductOrderController;
+
 
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
@@ -93,6 +95,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/stores/{store}/services', [StoreController::class, 'services']);
     Route::get('/stores/{store}/booked-times', [StoreController::class, 'bookedTimes']);
     Route::get('/stores/{store}/rewards', [StoreController::class, 'rewards']);
+    Route::get('/stores/{storeId}/loyalty', [StoreLoyaltyController::class, 'publicShow']);
+    
     
     
 
@@ -114,6 +118,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/appointments', [AppointmentController::class, 'index']);
     Route::post('/appointments', [AppointmentController::class, 'store']);
     Route::put('/appointments/{appointment}', [AppointmentController::class, 'update']);
+
+    // Product Orders
+    Route::post('/store/product-orders', [ProductOrderController::class, 'store']);
+    Route::get('/product-orders', [ProductOrderController::class, 'index']);
 
     Route::put('/auth/profile', function (Request $request) {
         $user = $request->user();
