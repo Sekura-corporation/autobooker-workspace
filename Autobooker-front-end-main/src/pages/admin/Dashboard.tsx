@@ -33,6 +33,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import {
   getAdminDashboard,
   approveStore,
@@ -70,6 +71,8 @@ function formatDate(dateStr: string): string {
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isRejectConfirmOpen, setIsRejectConfirmOpen] = useState(false);
+  const [storeToReject, setStoreToReject] = useState<PendingStore | null>(null);
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [approvingId, setApprovingId] = useState<number | null>(null);
@@ -123,8 +126,6 @@ export default function AdminDashboard() {
   }
 
   async function handleReject(store: PendingStore) {
-    if (!confirm(`Tem certeza que deseja rejeitar a loja "${store.name}"?`)) return;
-
     setRejectingId(store.id);
     try {
       await rejectStore(store.id);
@@ -146,6 +147,11 @@ export default function AdminDashboard() {
     } finally {
       setRejectingId(null);
     }
+  }
+
+  function openRejectConfirm(store: PendingStore) {
+    setStoreToReject(store);
+    setIsRejectConfirmOpen(true);
   }
 
   // ─── Export CSV ─────────────────────────────────────────────────────────────
@@ -364,7 +370,7 @@ Receita Mensal de Assinaturas,R$ ${stats.monthly_revenue.toLocaleString("pt-BR",
                     <Button
                       variant="secondary"
                       className="flex-1 text-xs py-2 !text-red-600 hover:!bg-red-50"
-                      onClick={() => handleReject(store)}
+                      onClick={() => openRejectConfirm(store)}
                       disabled={approvingId === store.id || rejectingId === store.id}
                     >
                       {rejectingId === store.id ? (
@@ -529,6 +535,23 @@ Receita Mensal de Assinaturas,R$ ${stats.monthly_revenue.toLocaleString("pt-BR",
           </div>
         )}
       </Modal>
+
+      {/* ─── Confirmação de Rejeição ─── */}
+      {storeToReject && (
+        <ConfirmDialog
+          isOpen={isRejectConfirmOpen}
+          onClose={() => {
+            setIsRejectConfirmOpen(false);
+            setStoreToReject(null);
+          }}
+          onConfirm={() => handleReject(storeToReject)}
+          title="Rejeitar Loja"
+          message={`Tem certeza que deseja rejeitar a loja "${storeToReject.name}"? Esta ação não pode ser desfeita.`}
+          confirmLabel="Rejeitar"
+          cancelLabel="Cancelar"
+          variant="danger"
+        />
+      )}
     </div>
   );
 }

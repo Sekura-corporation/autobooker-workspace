@@ -21,6 +21,37 @@ Laravel is a web application framework with expressive, elegant syntax. We belie
 
 Laravel is accessible, powerful, and provides tools required for large, robust applications.
 
+## Instalação
+
+Para instalar e configurar o projeto, siga os passos abaixo:
+
+1. **Instale as dependências do PHP:**
+   ```bash
+   composer install
+   ```
+
+2. **Configure o arquivo `.env`:**
+   ```bash
+   cp .env.example .env
+   php artisan key:generate
+   ```
+
+3. **Execute as migrações do banco de dados:**
+   ```bash
+   php artisan migrate
+   ```
+
+4. **Habilite o acesso às imagens armazenadas:**
+   ```bash
+   php artisan storage:link
+   ```
+   > **Importante:** sem esse comando, as imagens enviadas (logos, banners e fotos de perfil) não serão exibidas corretamente na aplicação.
+
+5. **Inicie o servidor:**
+   ```bash
+   php artisan serve
+   ```
+
 ## Learning Laravel
 
 Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
