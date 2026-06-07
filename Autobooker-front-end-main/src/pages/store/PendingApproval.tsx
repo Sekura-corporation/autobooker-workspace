@@ -50,12 +50,12 @@ export default function PendingApproval() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100">
+          {/* <div className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100">
             <Mail className="text-blue-500 w-5 h-5 shrink-0" />
             <p className="text-xs text-blue-800">
               Você receberá um e-mail assim que sua conta for ativada e liberada para uso.
             </p>
-          </div>
+          </div> */}
 
           <Button 
             variant="outline" 

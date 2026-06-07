@@ -83,6 +83,9 @@ class AdminStoreController extends Controller
                 ->sum('price');
         }
 
+        // Buscar atividades recentes
+        $lastActivities = $this->getLastActivities($store->id);
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -117,10 +120,70 @@ class AdminStoreController extends Controller
                 'team_size' => 1,
                 'monthly_revenue' => 'R$ ' . number_format((float) $monthlyRevenue, 2, ',', '.'),
                 'recent_notes' => [],
-                'last_activities' => [],
+                'last_activities' => $lastActivities,
                 'partners' => []
             ]
         ]);
+    }
+
+    private function getLastActivities(int $storeId): array
+    {
+        $activities = [];
+
+        // Agendamentos recentes (últimos 30 dias)
+        if (DB::getSchemaBuilder()->hasTable('appointments')) {
+            $appointments = DB::table('appointments')
+                ->where('store_id', $storeId)
+                ->where('created_at', '>=', now()->subDays(30))
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get();
+
+            foreach ($appointments as $appointment) {
+                $statusLabel = match($appointment->status) {
+                    'pending' => 'Pendente',
+                    'completed' => 'Concluído',
+                    'cancelled' => 'Cancelado',
+                    'in_progress' => 'Em Progresso',
+                    'paid' => 'Pago',
+                    'waiting' => 'Aguardando',
+                    default => ucfirst($appointment->status),
+                };
+
+                $activities[] = [
+                    'date' => \Carbon\Carbon::parse($appointment->created_at)->format('d/m/Y'),
+                    'title' => 'Agendamento ' . $statusLabel,
+                    'description' => 'Um agendamento foi criado ou atualizado.',
+                ];
+            }
+        }
+
+        // Serviços recentes (últimos 30 dias)
+        if (DB::getSchemaBuilder()->hasTable('services')) {
+            $services = DB::table('services')
+                ->where('store_id', $storeId)
+                ->where('created_at', '>=', now()->subDays(30))
+                ->orderBy('created_at', 'desc')
+                ->limit(5)
+                ->get();
+
+            foreach ($services as $service) {
+                $activities[] = [
+                    'date' => \Carbon\Carbon::parse($service->created_at)->format('d/m/Y'),
+                    'title' => 'Serviço criado: ' . $service->name,
+                    'description' => 'Um novo serviço foi adicionado à loja.',
+                ];
+            }
+        }
+
+        // Ordenar por data decrescente e limitar a 15 atividades
+        usort($activities, function ($a, $b) {
+            $dateA = \Carbon\Carbon::createFromFormat('d/m/Y', $a['date']);
+            $dateB = \Carbon\Carbon::createFromFormat('d/m/Y', $b['date']);
+            return $dateB->timestamp <=> $dateA->timestamp;
+        });
+
+        return array_slice($activities, 0, 15);
     }
 
     public function approve(Store $store): JsonResponse

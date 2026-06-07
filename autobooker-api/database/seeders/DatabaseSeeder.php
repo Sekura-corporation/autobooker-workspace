@@ -7,6 +7,9 @@ use App\Models\Plan;
 use App\Models\Partnership;
 use App\Models\Setting;
 use App\Models\Store;
+use App\Models\Service;
+use App\Models\Appointment;
+use App\Models\Vehicle;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -159,5 +162,71 @@ class DatabaseSeeder extends Seeder
         Setting::create(['key' => 'session_timeout', 'value' => '120']);
         Setting::create(['key' => 'terms_url', 'value' => 'https://autoestetica.com/termos-de-uso']);
         Setting::create(['key' => 'privacy_url', 'value' => 'https://autoestetica.com/privacidade']);
+
+        // 6. Criar Serviços para a loja
+        $servicoLavagem = Service::create([
+            'store_id' => $store->id,
+            'name' => 'Lavagem Completa',
+            'description' => 'Lavagem externa e interna do veículo',
+            'price' => 150.00,
+            'duration_minutes' => 60,
+            'status' => true,
+        ]);
+
+        $servicoPolimento = Service::create([
+            'store_id' => $store->id,
+            'name' => 'Polimento Protetor',
+            'description' => 'Polimento com proteção cerâmica',
+            'price' => 250.00,
+            'duration_minutes' => 90,
+            'status' => true,
+        ]);
+
+        $servicoVitrificacao = Service::create([
+            'store_id' => $store->id,
+            'name' => 'Vitrificação Premium',
+            'description' => 'Vitrificação de pintura com produto premium',
+            'price' => 450.00,
+            'duration_minutes' => 120,
+            'status' => true,
+        ]);
+
+        // 7. Criar Agendamentos de teste para este mês (com status completed)
+        // Primeiro criar um veículo para o cliente
+        $vehicle = Vehicle::create([
+            'client_id' => $cliente->id,
+            'brand' => 'Toyota',
+            'model' => 'Corolla',
+            'color' => 'Prata',
+            'year' => 2023,
+            'plate' => 'ABC1234',
+        ]);
+
+        $currentDate = now();
+        $startOfMonth = $currentDate->copy()->startOfMonth();
+        
+        // Agendamentos para os últimos 7 dias
+        for ($i = 0; $i < 7; $i++) {
+            $date = $startOfMonth->copy()->addDays($currentDate->day - 7 + $i);
+            
+            // 2-4 agendamentos por dia
+            for ($j = 0; $j < rand(2, 4); $j++) {
+                $service = collect([$servicoLavagem, $servicoPolimento, $servicoVitrificacao])->random();
+                
+                Appointment::create([
+                    'store_id' => $store->id,
+                    'client_id' => $cliente->id,
+                    'service_id' => $service->id,
+                    'vehicle_id' => $vehicle->id,
+                    'appointment_date' => $date->format('Y-m-d'),
+                    'appointment_time' => sprintf('%02d:00:00', rand(9, 17)),
+                    'status' => 'completed',
+                    'price' => $service->price,
+                    'notes' => 'Agendamento de teste',
+                    'created_at' => $date,
+                    'updated_at' => $date,
+                ]);
+            }
+        }
     }
 }
