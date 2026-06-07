@@ -16,6 +16,15 @@ import {
   Activity,
   Star,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import PageHeader from "@/components/shared/PageHeader";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -124,6 +133,21 @@ export default function AdminStoreDetail() {
   useMemo(() => {
     fetchStoreDetail();
   }, [params.id]);
+
+  const activityChartData = useMemo(() => {
+    if (!currentStore?.lastActivities) return [];
+    
+    const grouped: { [key: string]: number } = {};
+    currentStore.lastActivities.forEach((activity) => {
+      const date = activity.date;
+      grouped[date] = (grouped[date] || 0) + 1;
+    });
+    
+    return Object.entries(grouped).map(([date, count]) => ({
+      date,
+      atividades: count,
+    }));
+  }, [currentStore?.lastActivities]);
 
   const openEditModal = () => {
     if (!currentStore) {
@@ -375,6 +399,52 @@ export default function AdminStoreDetail() {
                 Histórico recente
               </h3>
             </div>
+
+            {activityChartData.length > 0 && (
+              <div className="mb-6 p-3 bg-gradient-to-br from-zinc-50 to-zinc-100 rounded-lg border border-zinc-200">
+                <p className="text-xs font-semibold uppercase text-zinc-600 mb-3 tracking-wide">
+                   Distribuição por data
+                </p>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart 
+                    data={activityChartData}
+                    margin={{ top: 5, right: 10, left: -5, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="2 2" stroke="#d4d4d8" vertical={false} />
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{ fontSize: 11, fill: "#71717a" }}
+                      axisLine={{ stroke: "#e4e4e7" }}
+                      tickLine={false}
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 11, fill: "#71717a" }}
+                      axisLine={{ stroke: "#e4e4e7" }}
+                      tickLine={false}
+                      width={30}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#fff",
+                        border: "1.5px solid #820000",
+                        borderRadius: "6px",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                        padding: "6px 8px"
+                      }}
+                      formatter={(value) => [value, "Atividades"]}
+                      labelStyle={{ color: "#000", fontSize: 12, fontWeight: 600 }}
+                      cursor={{ fill: "rgba(130, 0, 0, 0.05)" }}
+                    />
+                    <Bar
+                      dataKey="atividades"
+                      fill="#820000"
+                      radius={[6, 6, 0, 0]}
+                      maxBarSize={40}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
 
             <div className="space-y-4">
               {currentStore.lastActivities.map((activity) => (
