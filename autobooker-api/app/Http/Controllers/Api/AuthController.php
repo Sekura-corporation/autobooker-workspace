@@ -9,6 +9,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\PasswordRecoveryMail;
+use Carbon\Carbon;
 
 class AuthController extends Controller
 {
@@ -73,17 +76,18 @@ class AuthController extends Controller
             ]);
 
             $store = Store::create([
-                'owner_id' => $user->id,
-                'name' => $storeInput['name'],
-                'cnpj' => $storeInput['cnpj'] ?? null,
-                'phone' => $storeInput['phone'] ?? null,
-                'email' => $storeInput['email'] ?? null,
-                'address' => $storeInput['address'] ?? null,
-                'city' => $storeInput['city'] ?? null,
-                'state' => $storeInput['state'] ?? null,
-                'zip_code' => $storeInput['zip_code'] ?? null,
-                'description' => $storeInput['description'] ?? null,
+                'owner_id'      => $user->id,
+                'name'          => $storeInput['name'],
+                'cnpj'          => $storeInput['cnpj'] ?? null,
+                'phone'         => $storeInput['phone'] ?? null,
+                'email'         => $storeInput['email'] ?? null,
+                'address'       => $storeInput['address'] ?? null,
+                'city'          => $storeInput['city'] ?? null,
+                'state'         => $storeInput['state'] ?? null,
+                'zip_code'      => $storeInput['zip_code'] ?? null,
+                'description'   => $storeInput['description'] ?? null,
                 'opening_hours' => $storeInput['opening_hours'] ?? null,
+                'status'        => 'pending', // Aguardando aprovação do admin
             ]);
 
             $token = $user->createToken('autobooker_token')->plainTextToken;
@@ -113,6 +117,12 @@ class AuthController extends Controller
             ]);
         }
 
+        if (!$user->status) {
+            throw ValidationException::withMessages([
+                'email' => ['Esta conta foi bloqueada pelo administrador.'],
+            ]);
+        }
+
         $token = $user->createToken('autobooker_token')->plainTextToken;
 
         return response()->json([
@@ -137,16 +147,104 @@ class AuthController extends Controller
         ]);
     }
 
+    public function forgotPassword(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            throw ValidationException::withMessages([
+                'email' => ['E-mail não encontrado em nossa base de dados.'],
+            ]);
+        }
+
+        $code = rand(100000, 999999);
+
+        DB::table('password_reset_tokens')->updateOrInsert(
+            ['email' => $user->email],
+            [
+                'token' => $code, // usando token column para os 6 dígitos
+                'created_at' => Carbon::now()
+            ]
+        );
+
+        Mail::to($user->email)->send(new PasswordRecoveryMail($code));
+
+        return response()->json(['message' => 'Código de recuperação enviado.'], 200);
+    }
+
+    public function verifyCode(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'code' => 'required|numeric|digits:6',
+        ]);
+
+        $record = DB::table('password_reset_tokens')
+            ->where('email', $request->email)
+            ->where('token', $request->code)
+            ->first();
+
+        if (!$record || Carbon::parse($record->created_at)->addMinutes(15)->isPast()) {
+            return response()->json(['message' => 'Código inválido ou expirado.'], 400);
+        }
+
+        return response()->json(['message' => 'Código válido.'], 200);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'code' => 'required|numeric|digits:6',
+            'password' => 'required|min:6|confirmed',
+        ]);
+
+        $record = DB::table('password_reset_tokens')
+            ->where('email', $request->email)
+            ->where('token', $request->code)
+            ->first();
+
+        if (!$record || Carbon::parse($record->created_at)->addMinutes(15)->isPast()) {
+            return response()->json(['message' => 'Código inválido ou expirado.'], 400);
+        }
+
+        $user = User::where('email', $request->email)->first();
+        if ($user) {
+            $user->password = Hash::make($request->password);
+            $user->save();
+        }
+
+        DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+
+        return response()->json(['message' => 'Senha alterada com sucesso.'], 200);
+    }
+
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => ['required', 'string'],
+            'new_password' => ['required', 'string', 'min:6', 'confirmed'],
+        ]);
+
+        $user = $request->user();
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['A senha atual está incorreta.'],
+            ]);
+        }
+
+        $user->password = Hash::make($request->new_password);
+        $user->save();
+
+        return response()->json(['message' => 'Senha alterada com sucesso.']);
+    }
+
     private function userJson(User $user): array
     {
-        return [
-            'id' => (string) $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-            'role' => $user->role ?? 'client',
-            'createdAt' => $user->created_at ? $user->created_at->toISOString() : null,
-            'updatedAt' => $user->updated_at ? $user->updated_at->toISOString() : null,
-        ];
+        return $user->toApiArray();
     }
 
     private function storeJson(Store $store): array

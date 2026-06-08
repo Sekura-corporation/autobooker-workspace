@@ -24,7 +24,7 @@ return new class extends Migration
             $table->string('zip_code')->nullable();
             $table->text('description')->nullable();
             $table->string('opening_hours')->nullable();
-            $table->boolean('status')->default(true);
+            $table->string('status')->default('pending'); // pending, active, rejected
             $table->timestamps();
         });
     }

@@ -13,108 +13,108 @@ import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Modal from "@/components/ui/Modal";
 import { useToast } from "@/hooks/useToast";
+import { getAdminSettings, updateAdminSettings, forceGlobalLogout } from "@/services/admin.service";
 import {
   isValidEmail,
   isValidNumber,
   isValidURL,
   isWithinLength,
+  isValidPhone,
+  isEmpty,
 } from "@/utils/validators";
 
 type SettingsForm = {
-  taxRate: string;
-  transferDays: string;
-  gatewayKey: string;
-  maintenanceMode: "off" | "restricted" | "full";
-  systemEmail: string;
-  sessionTimeout: string;
-  termsUrl: string;
-  privacyUrl: string;
+  tax_rate: string;
+  platform_commission_default: string;
+  maintenance_mode: "off" | "restricted" | "full";
+  support_email: string;
+  support_phone: string;
+  max_stores_free_trial: string;
+  free_trial_days: string;
+  gateway_mode: "sandbox" | "live";
+  brand_name: string;
 };
 
 type SettingsErrors = Partial<Record<keyof SettingsForm, string>>;
 
-const SETTINGS_STORAGE_KEY = "@autobooker:admin-settings";
-
 const INITIAL_SETTINGS: SettingsForm = {
-  taxRate: "5,5",
-  transferDays: "14",
-  gatewayKey: "sk_live_********************************",
-  maintenanceMode: "off",
-  systemEmail: "noreply@autoestetica.com.br",
-  sessionTimeout: "120",
-  termsUrl: "https://autoestetica.com/termos-de-uso",
-  privacyUrl: "https://autoestetica.com/privacidade",
+  tax_rate: "5",
+  platform_commission_default: "10",
+  maintenance_mode: "off",
+  support_email: "suporte@autobooker.com",
+  support_phone: "(11) 99999-9999",
+  max_stores_free_trial: "1",
+  free_trial_days: "14",
+  gateway_mode: "sandbox",
+  brand_name: "AutoBooker",
 };
-
-function loadPersistedSettings(): SettingsForm {
-  if (typeof window === "undefined") {
-    return INITIAL_SETTINGS;
-  }
-
-  const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
-  if (!raw) {
-    return INITIAL_SETTINGS;
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as Partial<SettingsForm>;
-    return { ...INITIAL_SETTINGS, ...parsed };
-  } catch {
-    return INITIAL_SETTINGS;
-  }
-}
 
 export default function AdminSettings() {
   const toast = useToast();
-  const [settings, setSettings] = useState<SettingsForm>(() =>
-    loadPersistedSettings(),
-  );
+  const [settings, setSettings] = useState<SettingsForm>(INITIAL_SETTINGS);
   const [errors, setErrors] = useState<SettingsErrors>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const fetchSettings = async () => {
+    setLoading(true);
+    try {
+      const data = await getAdminSettings();
+      if (Object.keys(data).length > 0) {
+        setSettings({
+          tax_rate: data.tax_rate || INITIAL_SETTINGS.tax_rate,
+          platform_commission_default: data.platform_commission_default || INITIAL_SETTINGS.platform_commission_default,
+          maintenance_mode: (data.maintenance_mode as any) || INITIAL_SETTINGS.maintenance_mode,
+          support_email: data.support_email || INITIAL_SETTINGS.support_email,
+          support_phone: data.support_phone || INITIAL_SETTINGS.support_phone,
+          max_stores_free_trial: data.max_stores_free_trial || INITIAL_SETTINGS.max_stores_free_trial,
+          free_trial_days: data.free_trial_days || INITIAL_SETTINGS.free_trial_days,
+          gateway_mode: (data.gateway_mode as any) || INITIAL_SETTINGS.gateway_mode,
+          brand_name: data.brand_name || INITIAL_SETTINGS.brand_name,
+        });
+      }
+    } catch (err) {
+      toast.error("Erro ao carregar configurações");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useState(() => {
+    fetchSettings();
+  });
 
   const validateSettings = () => {
     const nextErrors: SettingsErrors = {};
 
-    const normalizedTaxRate = settings.taxRate.replace(",", ".").trim();
-    const normalizedTransferDays = settings.transferDays.trim();
-    const normalizedSessionTimeout = settings.sessionTimeout.trim();
-
-    if (!isValidNumber(normalizedTaxRate) || Number(normalizedTaxRate) <= 0) {
-      nextErrors.taxRate = "Informe uma taxa válida.";
+    if (!isValidNumber(settings.tax_rate) || Number(settings.tax_rate) < 0) {
+      nextErrors.tax_rate = "Informe uma taxa válida.";
     }
 
-    if (
-      !isValidNumber(normalizedTransferDays) ||
-      Number(normalizedTransferDays) <= 0 ||
-      !Number.isInteger(Number(normalizedTransferDays))
-    ) {
-      nextErrors.transferDays = "Informe um número inteiro de dias válido.";
+    if (!isValidNumber(settings.platform_commission_default) || Number(settings.platform_commission_default) < 0) {
+      nextErrors.platform_commission_default = "Informe uma comissão válida.";
     }
 
-    if (!isWithinLength(settings.gatewayKey.trim(), 10, 500)) {
-      nextErrors.gatewayKey = "Informe uma chave de gateway válida.";
+    if (!isValidEmail(settings.support_email.trim())) {
+      nextErrors.support_email = "Informe um e-mail válido.";
     }
 
-    if (!isValidEmail(settings.systemEmail.trim())) {
-      nextErrors.systemEmail = "Informe um e-mail válido.";
+    if (!isValidPhone(settings.support_phone)) {
+      nextErrors.support_phone = "Informe um telefone válido.";
     }
 
-    if (
-      !isValidNumber(normalizedSessionTimeout) ||
-      Number(normalizedSessionTimeout) <= 0 ||
-      !Number.isInteger(Number(normalizedSessionTimeout))
-    ) {
-      nextErrors.sessionTimeout = "Informe um tempo de sessão válido.";
+    if (!isValidNumber(settings.max_stores_free_trial) || Number(settings.max_stores_free_trial) <= 0) {
+      nextErrors.max_stores_free_trial = "Informe um limite válido.";
     }
 
-    if (!isValidURL(settings.termsUrl.trim())) {
-      nextErrors.termsUrl = "Informe uma URL válida para os termos.";
+    if (!isValidNumber(settings.free_trial_days) || Number(settings.free_trial_days) <= 0) {
+      nextErrors.free_trial_days = "Informe um número de dias válido.";
     }
 
-    if (!isValidURL(settings.privacyUrl.trim())) {
-      nextErrors.privacyUrl = "Informe uma URL válida para a política.";
+    if (isEmpty(settings.brand_name)) {
+      nextErrors.brand_name = "O nome da marca é obrigatório.";
     }
 
     return nextErrors;
@@ -131,9 +131,10 @@ export default function AdminSettings() {
 
     setIsSaving(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+      await updateAdminSettings(settings as any);
       toast.success("Configurações globais salvas com sucesso.");
+    } catch (err) {
+      toast.error("Erro ao salvar configurações globais.");
     } finally {
       setIsSaving(false);
     }
@@ -142,8 +143,10 @@ export default function AdminSettings() {
   const handleForceLogout = async () => {
     setIsLoggingOut(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      toast.success("Logout global solicitado com sucesso.");
+      await forceGlobalLogout();
+      toast.success("Logoff global executado. Todos os outros usuários foram desconectados.");
+    } catch (err) {
+      toast.error("Erro ao forçar logoff global.");
     } finally {
       setIsLoggingOut(false);
       setIsLogoutModalOpen(false);
@@ -168,7 +171,14 @@ export default function AdminSettings() {
       </PageHeader>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <Card className="p-6">
+        {loading && (
+          <div className="col-span-1 xl:col-span-2 py-10 flex justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#820000]"></div>
+          </div>
+        )}
+        {!loading && (
+          <>
+            <Card className="p-6">
           <div className="flex items-center gap-2 mb-5">
             <BadgeDollarSign size={20} className="text-[#820000]" />
             <h3 className="text-xl font-black text-zinc-900">
@@ -179,33 +189,40 @@ export default function AdminSettings() {
           <div className="space-y-5">
             <Input
               label="Taxa Administrativa Padrão (%)"
-              value={settings.taxRate}
-              error={errors.taxRate}
+              value={settings.tax_rate}
+              error={errors.tax_rate}
               onChange={(e) =>
-                setSettings((prev) => ({ ...prev, taxRate: e.target.value }))
+                setSettings((prev) => ({ ...prev, tax_rate: e.target.value.replace(/[^\d.]/g, "") }))
               }
               helper="Imposto retido na fonte por transações dentro da plataforma."
             />
             <Input
-              label="Dias para Repasse Automático"
-              value={settings.transferDays}
-              error={errors.transferDays}
+              label="Comissão Padrão da Plataforma (%)"
+              value={settings.platform_commission_default}
+              error={errors.platform_commission_default}
               onChange={(e) =>
                 setSettings((prev) => ({
                   ...prev,
-                  transferDays: e.target.value,
+                  platform_commission_default: e.target.value.replace(/[^\d.]/g, ""),
                 }))
               }
             />
-            <Input
-              label="Chave Secreta Gateway (Stripe/MercadoPago)"
-              type="password"
-              value={settings.gatewayKey}
-              error={errors.gatewayKey}
-              onChange={(e) =>
-                setSettings((prev) => ({ ...prev, gatewayKey: e.target.value }))
-              }
-            />
+            <label className="flex flex-col gap-2 text-sm font-bold text-[#050505]">
+              Modo do Gateway
+              <select
+                className="px-4 py-3 rounded-lg border-2 border-zinc-200 bg-white transition-all font-medium text-sm focus:outline-none focus:border-[#820000]"
+                value={settings.gateway_mode}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    gateway_mode: e.target.value as "sandbox" | "live",
+                  }))
+                }
+              >
+                <option value="sandbox">Sandbox (Teste)</option>
+                <option value="live">Live (Produção)</option>
+              </select>
+            </label>
           </div>
         </Card>
 
@@ -222,12 +239,12 @@ export default function AdminSettings() {
               Modo de Manutenção Restrita
               <select
                 className="px-4 py-3 rounded-lg border-2 border-zinc-200 bg-white transition-all font-medium text-sm focus:outline-none focus:border-[#820000]"
-                value={settings.maintenanceMode}
+                value={settings.maintenance_mode}
                 onChange={(e) =>
                   setSettings((prev) => ({
                     ...prev,
-                    maintenanceMode: e.target
-                      .value as SettingsForm["maintenanceMode"],
+                    maintenance_mode: e.target
+                      .value as SettingsForm["maintenance_mode"],
                   }))
                 }
               >
@@ -238,26 +255,25 @@ export default function AdminSettings() {
             </label>
 
             <Input
-              label="E-mail Padrão do Sistema (Remetente SMTP)"
-              type="email"
-              value={settings.systemEmail}
-              error={errors.systemEmail}
+              label="Dias de Teste Grátis (Free Trial)"
+              value={settings.free_trial_days}
+              error={errors.free_trial_days}
               onChange={(e) =>
                 setSettings((prev) => ({
                   ...prev,
-                  systemEmail: e.target.value,
+                  free_trial_days: e.target.value.replace(/\D/g, ""),
                 }))
               }
             />
 
             <Input
-              label="Limite Ocioso de Sessão (minutos)"
-              value={settings.sessionTimeout}
-              error={errors.sessionTimeout}
+              label="Máx. Lojas no Teste Grátis"
+              value={settings.max_stores_free_trial}
+              error={errors.max_stores_free_trial}
               onChange={(e) =>
                 setSettings((prev) => ({
                   ...prev,
-                  sessionTimeout: e.target.value,
+                  max_stores_free_trial: e.target.value.replace(/\D/g, ""),
                 }))
               }
             />
@@ -277,25 +293,34 @@ export default function AdminSettings() {
           <div className="flex items-center gap-2 mb-5">
             <Paintbrush size={20} className="text-[#820000]" />
             <h3 className="text-xl font-black text-zinc-900">
-              Políticas e Termos
+              Informações de Contato / Suporte
             </h3>
           </div>
 
-          <div className="grid grid-cols-1 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             <Input
-              label="Termos de Uso (URL Pública)"
-              value={settings.termsUrl}
-              error={errors.termsUrl}
+              label="Nome da Marca"
+              value={settings.brand_name}
+              error={errors.brand_name}
               onChange={(e) =>
-                setSettings((prev) => ({ ...prev, termsUrl: e.target.value }))
+                setSettings((prev) => ({ ...prev, brand_name: e.target.value }))
               }
             />
             <Input
-              label="Política de Privacidade (URL Pública)"
-              value={settings.privacyUrl}
-              error={errors.privacyUrl}
+              label="E-mail de Suporte"
+              type="email"
+              value={settings.support_email}
+              error={errors.support_email}
               onChange={(e) =>
-                setSettings((prev) => ({ ...prev, privacyUrl: e.target.value }))
+                setSettings((prev) => ({ ...prev, support_email: e.target.value }))
+              }
+            />
+            <Input
+              label="Telefone de Suporte"
+              value={settings.support_phone}
+              error={errors.support_phone}
+              onChange={(e) =>
+                setSettings((prev) => ({ ...prev, support_phone: e.target.value }))
               }
             />
           </div>
@@ -326,6 +351,8 @@ export default function AdminSettings() {
             </div>
           </div>
         </Card>
+        </>
+      )}
       </div>
 
       <Modal

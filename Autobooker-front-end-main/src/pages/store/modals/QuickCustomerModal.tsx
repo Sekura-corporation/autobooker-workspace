@@ -1,7 +1,9 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import api from "@/services/api";
 import { X } from "lucide-react";
 import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 
 interface QuickCustomerModalProps {
   isOpen: boolean;
@@ -25,7 +27,7 @@ export default function QuickCustomerModal({
     event.preventDefault();
   
     if (!name || !phone) {
-      alert("Informe nome e telefone.");
+      toast.error("Informe nome e telefone.");
       return;
     }
   
@@ -38,7 +40,7 @@ export default function QuickCustomerModal({
         plate,
       });
   
-      alert("Cliente cadastrado com sucesso!");
+      toast.success("Cliente cadastrado com sucesso!");
   
       setName("");
       setPhone("");
@@ -51,7 +53,7 @@ export default function QuickCustomerModal({
       onClose();
     } catch (error: any) {
       console.error("Erro ao cadastrar cliente:", error);
-      alert(error?.response?.data?.message || "Erro ao cadastrar cliente.");
+      toast.error(error?.response?.data?.message || "Erro ao cadastrar cliente.");
     } finally {
       setLoading(false);
     }
@@ -81,28 +83,24 @@ export default function QuickCustomerModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="text"
+          <Input
+            placeholder="Nome Completo"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Nome Completo"
-            className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <input
-              type="tel"
+            <Input
+              mask="phone"
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
               placeholder="Telefone (WhatsApp)"
-              className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
             />
-            <input
-              type="text"
+            <Input
+              mask="plate"
               value={plate}
               onChange={(event) => setPlate(event.target.value)}
               placeholder="Placa do Veículo Preferencial"
-              className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
             />
           </div>
 

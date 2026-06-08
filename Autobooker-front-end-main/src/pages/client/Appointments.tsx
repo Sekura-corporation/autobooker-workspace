@@ -1,8 +1,11 @@
+import api from "@/services/api";
 import { useState } from "react";
+import toast from "react-hot-toast";
 import { updateAppointmentStatus } from "@/services/appointments.service";
 import { useEffect } from "react";
 import { listAppointments } from "@/services/appointments.service";
 import { useNavigate } from "react-router-dom";
+import { listProductOrders } from "@/services/product-orders.service";  
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -21,10 +24,16 @@ import {
 export default function ClientAppointments() {
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [loyaltyRules, setLoyaltyRules] = useState<
+    Record<number, { spentValue: number; pointsValue: number }>
+  >({});
   useEffect(() => {
     async function fetchAppointments() {
       try {
-        const data = await listAppointments();
+        const [data, productOrders] = await Promise.all([
+          listAppointments(),
+          listProductOrders(),
+        ]);
   
         const normalized = data.map((apt: any) => {
           const serviceObj = typeof apt.service === "object" ? apt.service : null;
@@ -50,6 +59,7 @@ export default function ClientAppointments() {
           return {
             ...apt,
             scheduledAt,
+            storeId: apt.store_id ?? apt.storeId ?? apt.store?.id ?? storeObj?.id,
         
             service:
               serviceObj?.name ??
@@ -88,10 +98,35 @@ export default function ClientAppointments() {
         
             loyaltyPoints: apt.loyaltyPoints ?? apt.loyalty_points ?? 0,
             hasPickup: apt.hasPickup ?? apt.has_pickup ?? false,
+            storePhone:
+              apt.storePhone ??
+              apt.store_phone ??
+              storeObj?.phone ??
+              storeObj?.owner?.phone ??
+              "",
           };
         });
+
+        const normalizedProductOrders = productOrders.map((order: any) => ({
+          id: `order-${order.id}`,
+          status: "completed",
+          scheduledAt: order.created_at,
+          service:
+            order.items?.map((item: any) => {
+              return `${item.product?.name || "Produto"} x${item.quantity}`;
+            }).join(", ") || "Compra na lojinha",
+          storeName: order.store?.name || "Loja selecionada",
+          vehicle: "Produto físico",
+          plate: "",
+          duration: "Retirada/compra no local",
+          price: Number(order.total_price || 0),
+          loyaltyPoints: 0,
+          hasPickup: false,
+          storePhone: order.store?.phone || "",
+          isProductOrder: true,
+        }));
   
-        setAppointments(normalized);
+        setAppointments([...normalized, ...normalizedProductOrders]);
       } catch (error) {
         console.error("Erro ao buscar agendamentos", error);
       }
@@ -100,8 +135,43 @@ export default function ClientAppointments() {
     fetchAppointments();
   }, []);
 
+  useEffect(() => {
+  async function fetchLoyaltyRules() {
+    const storeIds = appointments
+      .map((appointment) => appointment.storeId)
+      .filter(Boolean);
+
+    const uniqueStoreIds = Array.from(new Set(storeIds));
+
+    if (uniqueStoreIds.length === 0) {
+      return;
+    }
+
+    const rules: Record<number, { spentValue: number; pointsValue: number }> = {};
+
+    await Promise.all(
+      uniqueStoreIds.map(async (storeId) => {
+        try {
+          const { data } = await api.get(`/stores/${storeId}/loyalty`);
+
+          rules[Number(storeId)] = {
+            spentValue: Number(data.data.rule.spent_value || 1),
+            pointsValue: Number(data.data.rule.points_value || 1),
+          };
+        } catch (error) {
+          console.error("Erro ao buscar regra de fidelidade:", error);
+        }
+      }),
+    );
+
+    setLoyaltyRules(rules);
+  }
+
+  fetchLoyaltyRules();
+}, [appointments]);
+
   // Separar agendamentos por status
-  const activeAppointment = appointments.find(
+  const activeAppointments = appointments.filter(
     (apt) =>
       apt.status === "pending" ||
       apt.status === "waiting" ||
@@ -136,21 +206,59 @@ export default function ClientAppointments() {
       );
     } catch (error) {
       console.error("Erro ao cancelar agendamento", error);
-      alert("Erro ao cancelar agendamento");
+      toast.error("Erro ao cancelar agendamento");
     }
   };
 
   // Calcular total com taxa e coleta
+  // O preço do agendamento já vem salvo com taxa e coleta incluídas
   const calculateTotal = (apt: ClientAppointmentItem) => {
-    const subtotal = apt.price;
-    const serviceFee = subtotal * 0.1; // 10%
+    const total = Number(apt.price || 0);
+
     const pickupCost = apt.hasPickup ? 25 : 0;
+    const subtotal = (total - pickupCost) / 1.1;
+    const serviceFee = subtotal * 0.1;
+
     return {
       subtotal,
       serviceFee,
       pickupCost,
-      total: subtotal + serviceFee + pickupCost,
+      total,
     };
+  };
+
+  const calculateLoyaltyPoints = (apt: ClientAppointmentItem) => {
+    const storeId = Number(apt.storeId);
+  
+    if (!storeId) {
+      return 0;
+    }
+  
+    const rule = loyaltyRules[storeId];
+  
+    if (!rule) {
+      return 0;
+    }
+  
+    const total = calculateTotal(apt).total;
+  
+    return Math.floor((total / rule.spentValue) * rule.pointsValue);
+  };
+
+  const handleContactStore = (phone: string | undefined, serviceName: string) => {
+    if (!phone) {
+      toast.error("Telefone de contato não disponível para esta estética.");
+      return;
+    }
+
+    const cleanPhone = phone.replace(/\D/g, "");
+    const formattedPhone = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
+
+    const text = encodeURIComponent(
+      `Olá! Sou cliente do AutoBooker e gostaria de falar sobre o meu agendamento do serviço: ${serviceName}.`
+    );
+
+    window.open(`https://wa.me/${formattedPhone}?text=${text}`, "_blank");
   };
 
   return (
@@ -166,160 +274,168 @@ export default function ClientAppointments() {
       </div>
 
       {/* STATUS ATUAL */}
-      {activeAppointment && (
+      {activeAppointments.length > 0 && (
         <div className="mb-12">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">
             Status Atual
           </h2>
-          <Card className="p-0 overflow-hidden border border-gray-100 shadow-md hover:shadow-lg transition-shadow">
-            <div className="absolute top-0 left-0 w-1.5 h-full bg-[#820000]" />
-            <div className="p-6 lg:p-8">
-              <div className="flex flex-col gap-6">
-                {/* TOP ROW: Date + Service Info - Compacto */}
-                <div className="flex items-center gap-5">
-                  {/* Date Box - Menor */}
-                  <div className="bg-red-50 text-[#820000] rounded-xl p-3 flex flex-col items-center justify-center w-[80px] h-[80px] shadow-inner flex-shrink-0">
-                    <span className="text-xs font-bold uppercase tracking-wider mb-0.5 opacity-80">
-                      {new Date(
-                        activeAppointment.scheduledAt,
-                      ).toLocaleDateString("pt-BR", { weekday: "short" })}
-                    </span>
-                    <span className="text-3xl font-black leading-none">
-                      {new Date(activeAppointment.scheduledAt).getDate()}
-                    </span>
-                    <span className="text-xs font-semibold mt-1 opacity-90">
-                      {new Date(
-                        activeAppointment.scheduledAt,
-                      ).toLocaleTimeString("pt-BR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  </div>
+          <div className="flex flex-col gap-4">
+            {activeAppointments.map((activeAppointment) => (
+              <Card
+                key={activeAppointment.id}
+                className="relative p-0 overflow-hidden border border-gray-100 shadow-md hover:shadow-lg transition-shadow"
+              >
+                <div className="absolute top-0 left-0 w-1.5 h-full bg-[#820000]" />
+                <div className="p-6 lg:p-8">
+                  <div className="flex flex-col gap-6">
+                    {/* TOP ROW: Date + Service Info - Compacto */}
+                    <div className="flex items-center gap-5">
+                      {/* Date Box - Menor */}
+                      <div className="bg-red-50 text-[#820000] rounded-xl p-3 flex flex-col items-center justify-center w-[80px] h-[80px] shadow-inner flex-shrink-0">
+                        <span className="text-xs font-bold uppercase tracking-wider mb-0.5 opacity-80">
+                          {new Date(
+                            activeAppointment.scheduledAt,
+                          ).toLocaleDateString("pt-BR", { weekday: "short" })}
+                        </span>
+                        <span className="text-3xl font-black leading-none">
+                          {new Date(activeAppointment.scheduledAt).getDate()}
+                        </span>
+                        <span className="text-xs font-semibold mt-1 opacity-90">
+                          {new Date(
+                            activeAppointment.scheduledAt,
+                          ).toLocaleTimeString("pt-BR", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
 
-                  {/* Details - Resumido */}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <Badge className="bg-orange-100 text-orange-700 border-none px-3 py-0.5 text-xs font-bold">
-                        {getStatusLabel(activeAppointment.status)}
-                      </Badge>
-                    </div>
-                    <h3 className="text-xl font-extrabold text-gray-900 mb-2">
-                      {activeAppointment.service}
-                    </h3>
-                    <div className="flex flex-col gap-1 text-sm text-gray-600 font-medium">
-                      <p className="flex items-center gap-1.5">
-                        <Store className="w-4 h-4 flex-shrink-0" />
-                        {activeAppointment.storeName}
-                      </p>
-                      <p className="flex items-center gap-1.5">
-                        <Car className="w-4 h-4 flex-shrink-0" />
-                        {activeAppointment.vehicle} ({activeAppointment.plate})
-                      </p>
-                    </div>
-                  </div>
+                      {/* Details - Resumido */}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <Badge className="bg-orange-100 text-orange-700 border-none px-3 py-0.5 text-xs font-bold">
+                            {getStatusLabel(activeAppointment.status)}
+                          </Badge>
+                        </div>
+                        <h3 className="text-xl font-extrabold text-gray-900 mb-2">
+                          {activeAppointment.service}
+                        </h3>
+                        <div className="flex flex-col gap-1 text-sm text-gray-600 font-medium">
+                          <p className="flex items-center gap-1.5">
+                            <Store className="w-4 h-4 flex-shrink-0" />
+                            {activeAppointment.storeName}
+                          </p>
+                          <p className="flex items-center gap-1.5">
+                            <Car className="w-4 h-4 flex-shrink-0" />
+                            {activeAppointment.vehicle} ({activeAppointment.plate})
+                          </p>
+                        </div>
+                      </div>
 
-                  {/* Total - Destaque à direita */}
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-xs uppercase font-bold text-gray-500 tracking-wider mb-1">
-                      Total
-                    </p>
-                    <p className="text-2xl font-extrabold text-[#820000]">
-                      R$ {calculateTotal(activeAppointment).total.toFixed(2)}
-                    </p>
+                      {/* Total - Destaque à direita */}
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-xs uppercase font-bold text-gray-500 tracking-wider mb-1">
+                          Total
+                        </p>
+                        <p className="text-2xl font-extrabold text-[#820000]">
+                          R$ {calculateTotal(activeAppointment).total.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* DIVIDER */}
+                    <div className="border-t border-gray-200"></div>
+
+                    {/* COMPACT INFO ROW */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-xs uppercase font-bold text-gray-500 tracking-wider mb-1.5">
+                          Duração
+                        </p>
+                        <p className="text-sm font-bold text-gray-900">
+                          {activeAppointment.duration}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase font-bold text-gray-500 tracking-wider mb-1.5">
+                          Subtotal
+                        </p>
+                        <p className="text-sm font-bold text-gray-900">
+                          R$ {calculateTotal(activeAppointment).subtotal.toFixed(2)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase font-bold text-gray-500 tracking-wider mb-1.5">
+                          Taxa
+                        </p>
+                        <p className="text-sm font-bold text-gray-900">
+                          R${" "}
+                          {calculateTotal(activeAppointment).serviceFee.toFixed(2)}
+                        </p>
+                      </div>
+                      {activeAppointment.hasPickup && (
+                        <div>
+                          <p className="text-xs uppercase font-bold text-gray-500 tracking-wider mb-1.5">
+                            Coleta
+                          </p>
+                          <p className="text-sm font-bold text-gray-900">
+                            R${" "}
+                            {calculateTotal(activeAppointment).pickupCost.toFixed(
+                              2,
+                            )}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ALERTS & LOYALTY */}
+                    <div className="space-y-2.5">
+                      {activeAppointment.hasPickup && (
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2.5">
+                          <Truck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                          <p className="text-xs text-blue-900 font-medium">
+                            <strong>Coleta em Domicílio:</strong> Buscaremos em sua
+                            casa.
+                          </p>
+                        </div>
+                      )}
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2.5">
+                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <p className="text-xs text-amber-900 font-medium">
+                          <strong>
+                            +{calculateLoyaltyPoints(activeAppointment)} Pontos Fidelidade
+                          </strong>{" "}
+                          nesta visita.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* ACTIONS */}
+                    <div className="flex gap-3 pt-2">
+                      <Button
+                        className="flex-1 bg-[#820000] hover:bg-[#660000] text-white rounded-lg shadow-sm font-bold py-2 flex items-center justify-center gap-2 text-sm"
+                        onClick={() => handleContactStore(activeAppointment.storePhone, activeAppointment.service)}
+                      >
+                        <Phone className="w-4 h-4" />
+                        Atendente
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1 text-gray-600 hover:text-gray-900 border-gray-300 rounded-lg py-2 flex items-center justify-center gap-2"
+                        onClick={() => handleCancel(activeAppointment.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span className="text-sm">Cancelar</span>
+                      </Button>
+                    </div>
                   </div>
                 </div>
-
-                {/* DIVIDER */}
-                <div className="border-t border-gray-200"></div>
-
-                {/* COMPACT INFO ROW */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <p className="text-xs uppercase font-bold text-gray-500 tracking-wider mb-1.5">
-                      Duração
-                    </p>
-                    <p className="text-sm font-bold text-gray-900">
-                      {activeAppointment.duration}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase font-bold text-gray-500 tracking-wider mb-1.5">
-                      Subtotal
-                    </p>
-                    <p className="text-sm font-bold text-gray-900">
-                      R$ {calculateTotal(activeAppointment).subtotal.toFixed(2)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase font-bold text-gray-500 tracking-wider mb-1.5">
-                      Taxa
-                    </p>
-                    <p className="text-sm font-bold text-gray-900">
-                      R${" "}
-                      {calculateTotal(activeAppointment).serviceFee.toFixed(2)}
-                    </p>
-                  </div>
-                  {activeAppointment.hasPickup && (
-                    <div>
-                      <p className="text-xs uppercase font-bold text-gray-500 tracking-wider mb-1.5">
-                        Coleta
-                      </p>
-                      <p className="text-sm font-bold text-gray-900">
-                        R${" "}
-                        {calculateTotal(activeAppointment).pickupCost.toFixed(
-                          2,
-                        )}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* ALERTS & LOYALTY */}
-                <div className="space-y-2.5">
-                  {activeAppointment.hasPickup && (
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2.5">
-                      <Truck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                      <p className="text-xs text-blue-900 font-medium">
-                        <strong>Coleta em Domicílio:</strong> Buscaremos em sua
-                        casa.
-                      </p>
-                    </div>
-                  )}
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2.5">
-                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-900 font-medium">
-                      <strong>
-                        +{activeAppointment.loyaltyPoints} Pontos Fidelidade
-                      </strong>{" "}
-                      nesta visita.
-                    </p>
-                  </div>
-                </div>
-
-                {/* ACTIONS */}
-                <div className="flex gap-3 pt-2">
-                  <Button
-                    className="flex-1 bg-[#820000] hover:bg-[#660000] text-white rounded-lg shadow-sm font-bold py-2 flex items-center justify-center gap-2 text-sm"
-                    onClick={() => alert("Entrando em contato...")}
-                  >
-                    <Phone className="w-4 h-4" />
-                    Atendente
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1 text-gray-600 hover:text-gray-900 border-gray-300 rounded-lg py-2 flex items-center justify-center gap-2"
-                    onClick={() => handleCancel(activeAppointment.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <span className="text-sm">Cancelar</span>
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </Card>
+              </Card>
+            ))}
+          </div>
         </div>
       )}
+
       {/* HISTÓRICO RECENTE */}
       {completedAppointments.length > 0 && (
         <div className="mt-12">
@@ -379,7 +495,7 @@ export default function ClientAppointments() {
       )}
 
       {/* VAZIO */}
-      {!activeAppointment && (
+      {activeAppointments.length === 0 && (
         <Card className="p-12 text-center rounded-2xl">
           <div className="flex justify-center mb-4">
             <div className="p-4 bg-gray-100 rounded-full">

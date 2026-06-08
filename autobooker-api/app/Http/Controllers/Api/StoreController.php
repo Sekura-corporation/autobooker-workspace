@@ -22,12 +22,7 @@ class StoreController extends Controller
 
         if ($request->has('status')) {
             $status = $request->input('status');
-
-            if ($status == 'active' || $status == 1 || $status === true) {
-                $query->where('status', true);
-            } elseif ($status == 'inactive' || $status == 0 || $status === false) {
-                $query->where('status', false);
-            }
+            $query->where('status', $status);
         }
 
         $limit = (int) $request->input('limit', 50);
@@ -70,7 +65,7 @@ class StoreController extends Controller
         'name' => $store->name,
         'cnpj' => $store->cnpj,
         'ownerId' => $store->owner_id ? (string) $store->owner_id : null,
-        'status' => (bool) $store->status,
+        'status' => $store->status,
 
         'phone' => $store->phone,
         'email' => $store->email,
@@ -80,6 +75,8 @@ class StoreController extends Controller
         'zip_code' => $store->zip_code,
         'description' => $store->description,
         'opening_hours' => $store->opening_hours,
+        'logo_url' => $store->logo_url,
+        'banner_url' => $store->banner_url,
 
         'createdAt' => $store->created_at ? $store->created_at->toISOString() : null,
         'updatedAt' => $store->updated_at ? $store->updated_at->toISOString() : null,

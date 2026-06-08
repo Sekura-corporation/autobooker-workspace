@@ -2,7 +2,7 @@ import type { HTMLAttributes } from "react";
 import { CheckCircle, Clock, XCircle, Pause } from "lucide-react";
 
 interface StatusBadgeProps extends HTMLAttributes<HTMLDivElement> {
-  status: "active" | "pending" | "completed" | "cancelled" | "paused";
+  status: "active" | "pending" | "completed" | "cancelled" | "paused" | "rejected";
   label?: string;
   showIcon?: boolean;
 }
@@ -44,6 +44,12 @@ export default function StatusBadge({
       text: "text-gray-700",
       icon: Pause,
       defaultLabel: "Pausado",
+    },
+    rejected: {
+      bg: "bg-red-100",
+      text: "text-red-700",
+      icon: XCircle,
+      defaultLabel: "Rejeitado",
     },
   };
 

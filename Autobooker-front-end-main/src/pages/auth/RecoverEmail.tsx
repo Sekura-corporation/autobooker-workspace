@@ -3,14 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/useToast";
 import { isEmpty, isValidEmail } from "@/utils/validators";
 import { AuthLayout, Input } from "../../components/layout/AuthLayout";
+import authService from "@/services/auth.service";
 
 export default function RecoverEmail() {
   const navigate = useNavigate();
   const { error: toastError, success: toastSuccess } = useToast();
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (isEmpty(email)) {
@@ -26,8 +28,19 @@ export default function RecoverEmail() {
     }
 
     setEmailError("");
-    toastSuccess("Código enviado para o e-mail informado.");
-    navigate("/recuperar-codigo");
+    setIsLoading(true);
+
+    try {
+      await authService.requestPasswordRecovery({ email });
+      toastSuccess("Código enviado para o e-mail informado.");
+      navigate("/recuperar-codigo", { state: { email } });
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.errors?.email?.[0] || error.response?.data?.message || "Erro ao enviar código. Verifique e tente novamente.";
+      toastError(errorMsg);
+      setEmailError(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -50,9 +63,10 @@ export default function RecoverEmail() {
         />
         <button
           type="submit"
-          className="w-full py-4 bg-red-800 hover:bg-red-700 text-white rounded-xl font-semibold transition-all shadow-lg shadow-red-900/20 mt-4"
+          disabled={isLoading}
+          className="w-full py-4 bg-red-800 hover:bg-red-700 text-white rounded-xl font-semibold transition-all shadow-lg shadow-red-900/20 mt-4 disabled:opacity-50"
         >
-          Enviar código
+          {isLoading ? "Enviando..." : "Enviar código"}
         </button>
         <button
           type="button"

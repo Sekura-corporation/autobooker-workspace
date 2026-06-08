@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import { useNavigate, useParams } from "react-router-dom";
 import { ROLE_BASE_PATHS } from "@/utils/constants";
 import { useCart } from "@/context/useCart";
@@ -93,7 +94,38 @@ function formatStorePhone(s: ApiStoreRecord): string {
 }
 
 function formatOpeningHours(s: ApiStoreRecord): string {
-  return pickString(s.openingHours ?? s.opening_hours) ?? "—";
+  const raw = pickString(s.openingHours ?? s.opening_hours);
+  if (!raw) return "—";
+
+  if (raw.trim().startsWith("{")) {
+    try {
+      const schedule = JSON.parse(raw);
+      const dayLabels: { [key: string]: string } = {
+        seg: "Segunda-feira",
+        ter: "Terça-feira",
+        qua: "Quarta-feira",
+        qui: "Quinta-feira",
+        sex: "Sexta-feira",
+        sab: "Sábado",
+        dom: "Domingo",
+      };
+
+      return Object.keys(schedule)
+        .map((day) => {
+          const item = schedule[day];
+          const label = dayLabels[day] || day;
+          if (item.open) {
+            return `${label}: ${item.start} às ${item.end}`;
+          }
+          return `${label}: Fechado`;
+        })
+        .join("\n");
+    } catch (e) {
+      console.error("Erro ao formatar JSON de horários:", e);
+    }
+  }
+
+  return raw;
 }
 
 function mapRecordToStoreView(raw: ApiStoreRecord): StoreView {
@@ -107,7 +139,7 @@ function mapRecordToStoreView(raw: ApiStoreRecord): StoreView {
     openingHours: formatOpeningHours(raw),
     rating: 0,
     reviews: 0,
-    image: pickString(raw.image),
+    image: pickString(raw.banner_url) ?? pickString(raw.image),
     description: pickString(raw.description) ?? "Descrição não informada.",
   };
 }
@@ -433,7 +465,7 @@ export default function StoreDetail() {
                           );
                         
                           if (alreadyHasAppointmentItem) {
-                            alert("Você só pode agendar um serviço ou pacote por vez.");
+                            toast.error("Você só pode agendar um serviço ou pacote por vez.");
                             return;
                           }
                         
@@ -539,7 +571,7 @@ export default function StoreDetail() {
                           );
 
                           if (alreadyHasAppointmentItem) {
-                            alert("Você só pode agendar um serviço ou pacote por vez.");
+                            toast.error("Você só pode agendar um serviço ou pacote por vez.");
                             return;
                           }
 
@@ -634,6 +666,7 @@ export default function StoreDetail() {
                             name: product.name,
                             price: product.price,
                             quantity: 1,
+                            stock: product.quantity,
                           });
 
                           if (!addedItems.includes(cartKey)) {
@@ -702,7 +735,7 @@ export default function StoreDetail() {
               <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                 Horário
               </p>
-              <p className="text-gray-900 font-semibold text-sm">
+              <p className="text-gray-900 font-semibold text-sm whitespace-pre-line">
                 {store.openingHours}
               </p>
             </div>

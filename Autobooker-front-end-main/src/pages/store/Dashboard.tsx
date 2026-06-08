@@ -92,27 +92,37 @@ export default function StoreDashboard() {
   // 2. DADOS DE AGENDAMENTOS
   // ──────────────────────────────────────────────────────────
   const agendamentos =
-  dashboard?.todayAppointments?.map((appointment: any) => ({
-    id: appointment.id,
+  dashboard?.todayAppointments?.map((appointment: any) => {
+    const horaFormatada = (() => {
+      if (!appointment.appointment_date) return appointment.appointment_time?.slice(0, 5) ?? "";
+      const dateVal = appointment.appointment_date;
+      const datePart = dateVal.includes("T") ? dateVal.split("T")[0] : dateVal;
+      const todayStr = new Date().toLocaleDateString("en-CA");
+      if (datePart === todayStr) {
+        return appointment.appointment_time?.slice(0, 5) ?? "";
+      } else {
+        const [year, month, day] = datePart.split("-");
+        return `${day}/${month} às ${appointment.appointment_time?.slice(0, 5)}`;
+      }
+    })();
 
-    hora: appointment.appointment_time?.slice(0, 5),
-
-    cliente: appointment.client?.name || "Cliente",
-
-    servico: `${appointment.service?.name || "Serviço não informado"} - ${
-      appointment.vehicle?.model || "Veículo"
-    }`,
-
-    status:
-      appointment.status === "completed"
-        ? "completed"
-        : "pending",
-
-    borderColor:
-      appointment.status === "completed"
-        ? "border-l-green-500"
-        : "border-l-orange-400",
-  })) || [];
+    return {
+      id: appointment.id,
+      hora: horaFormatada,
+      cliente: appointment.client?.name || "Cliente",
+      servico: `${appointment.service?.name || "Serviço não informado"} - ${
+        appointment.vehicle?.model || "Veículo"
+      }`,
+      status:
+        appointment.status === "completed"
+          ? "completed"
+          : "pending",
+      borderColor:
+        appointment.status === "completed"
+          ? "border-l-green-500"
+          : "border-l-orange-400",
+    };
+  }) || [];
 
   // ──────────────────────────────────────────────────────────
   // 3. AÇÕES RÁPIDAS
@@ -265,7 +275,7 @@ export default function StoreDashboard() {
               })
             ) : (
               <p className="text-sm text-zinc-500">
-                Nenhum agendamento para hoje.
+                Nenhum agendamento pendente.
               </p>
             )}
           </div>

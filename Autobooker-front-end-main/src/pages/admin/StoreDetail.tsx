@@ -16,12 +16,23 @@ import {
   Activity,
   Star,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import PageHeader from "@/components/shared/PageHeader";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Modal from "@/components/ui/Modal";
 import StatusBadge from "@/components/shared/StatusBadge";
+import { getAdminStore } from "@/services/admin.service";
+import toast from "react-hot-toast";
 
 type StoreStatus = "active" | "pending" | "completed" | "cancelled" | "paused";
 
@@ -57,163 +68,16 @@ interface StoreDetailData {
   partners: string[];
 }
 
-const MOCK_STORE_DETAILS: StoreDetailData[] = [
-  {
-    id: 1,
-    name: "Lava Jato Central",
-    cnpj: "12.345.678/0001-90",
-    owner: "Carlos Eduardo",
-    status: "pending",
-    createdAt: "2024-01-15",
-    address: "Rua das Flores, 123 - São Paulo, SP",
-    phone: "(11) 98765-4321",
-    email: "contato@lavajato.com",
-    plan: "Plano Pro",
-    planPrice: "R$ 99,90 / mês",
-    storeManager: "Carlos Eduardo",
-    totalAppointments: 248,
-    monthlyRevenue: "R$ 18.420,00",
-    rating: 4.7,
-    activeServices: 14,
-    activeClients: 382,
-    teamSize: 5,
-    operationalStatus: "Em processo de aprovação",
-    services: [
-      "Lavagem Completa",
-      "Polimento Técnico",
-      "Higienização Interna",
-      "Proteção de Pintura",
-    ],
-    recentNotes: [
-      "Documentação enviada para análise final.",
-      "Loja solicitou ativação de múltiplos usuários.",
-      "Última validação cadastral realizada ontem.",
-    ],
-    lastActivities: [
-      {
-        date: "Hoje",
-        title: "Cadastro atualizado",
-        description: "Dados de contato revisados pela equipe administrativa.",
-      },
-      {
-        date: "Ontem",
-        title: "Aguardando aprovação",
-        description: "Cadastro permanece pendente até confirmação manual.",
-      },
-    ],
-    partners: ["Fiat Auto", "Central Autopeças", "Porto Seguros"],
-  },
-  {
-    id: 3,
-    name: "Douglas Details",
-    cnpj: "12.345.678/0001-90",
-    owner: "Carlos Eduardo",
-    status: "active",
-    createdAt: "2024-01-17",
-    approvedAt: "2024-02-20",
-    approvedBy: "Admin User",
-    address: "Rua de Teste, 789 - São Paulo, SP",
-    phone: "(11) 91234-5678",
-    email: "douglas@details.com",
-    plan: "Plano Master",
-    planPrice: "R$ 497,90 / mês",
-    storeManager: "Carlos Eduardo",
-    totalAppointments: 1240,
-    monthlyRevenue: "R$ 74.320,00",
-    rating: 4.9,
-    activeServices: 26,
-    activeClients: 1042,
-    teamSize: 12,
-    operationalStatus: "Operação estabilizada",
-    services: [
-      "Estética Premium",
-      "Vitrificação",
-      "Martelinho",
-      "Revisão Express",
-    ],
-    recentNotes: [
-      "Taxa de conversão acima da média da rede.",
-      "Parceiro ativo com fluxo recorrente de clientes.",
-      "Indicador de satisfação acima de 95%.",
-    ],
-    lastActivities: [
-      {
-        date: "Hoje",
-        title: "Rotina normal",
-        description: "Não houve alertas operacionais nas últimas 24h.",
-      },
-      {
-        date: "Ontem",
-        title: "Check-in de auditoria",
-        description: "Auditoria de rotina concluída sem pendências.",
-      },
-    ],
-    partners: ["BMW Motors", "Porto Seguros", "Auto Shine Premium"],
-  },
-  {
-    id: 4,
-    name: "Auto Estética VIP",
-    cnpj: "98.765.432/0001-10",
-    owner: "Maria Silva",
-    status: "active",
-    createdAt: "2024-01-18",
-    approvedAt: "2024-02-15",
-    approvedBy: "Admin User",
-    address: "Av. Paulista, 1000 - São Paulo, SP",
-    phone: "(11) 97777-8888",
-    email: "vip@autoestetica.com",
-    plan: "Plano Plus",
-    planPrice: "R$ 997,90 / mês",
-    storeManager: "Maria Silva",
-    totalAppointments: 1892,
-    monthlyRevenue: "R$ 122.540,00",
-    rating: 5.0,
-    activeServices: 38,
-    activeClients: 2048,
-    teamSize: 18,
-    operationalStatus: "Operação premium ativa",
-    services: [
-      "Polimento Premium",
-      "Proteção Cerâmica",
-      "Estética Completa",
-      "Detalhamento Interno",
-    ],
-    recentNotes: [
-      "Maior receita da rede no mês corrente.",
-      "Integração com parceiros funcionando normalmente.",
-      "Equipe treinada para atendimento premium.",
-    ],
-    lastActivities: [
-      {
-        date: "Hoje",
-        title: "Operação normal",
-        description: "Volume alto de pedidos e confirmação automática ativa.",
-      },
-      {
-        date: "Ontem",
-        title: "Atualização de catálogo",
-        description: "Novos serviços premium adicionados ao pacote.",
-      },
-    ],
-    partners: ["BMW Motors", "Fiat Auto", "Porto Seguros"],
-  },
-];
+const MOCK_STORE_DETAILS: StoreDetailData[] = [];
 
 export default function AdminStoreDetail() {
   const navigate = useNavigate();
   const params = useParams();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const initialStore = useMemo(
-    () =>
-      MOCK_STORE_DETAILS.find((item) => String(item.id) === params.id) ?? null,
-    [params.id],
-  );
-
-  const [currentStore, setCurrentStore] = useState<StoreDetailData | null>(
-    initialStore,
-  );
+  const [currentStore, setCurrentStore] = useState<StoreDetailData | null>(null);
   const [editForm, setEditForm] = useState({
     name: "",
     owner: "",
@@ -225,6 +89,65 @@ export default function AdminStoreDetail() {
     operationalStatus: "",
     status: "active" as StoreStatus,
   });
+
+  const fetchStoreDetail = async () => {
+    if (!params.id) return;
+    setLoading(true);
+    try {
+      const data = await getAdminStore(Number(params.id));
+      const mappedStore: StoreDetailData = {
+        id: data.id,
+        name: data.name,
+        cnpj: data.cnpj,
+        owner: data.owner,
+        status: data.status as StoreStatus,
+        createdAt: data.created_at,
+        approvedAt: data.approved_at || undefined,
+        approvedBy: data.approved_at ? "Admin User" : undefined,
+        address: data.address,
+        phone: data.phone,
+        email: data.email,
+        plan: data.plan,
+        planPrice: data.plan_price,
+        storeManager: data.owner,
+        totalAppointments: data.total_appointments,
+        monthlyRevenue: data.monthly_revenue,
+        rating: data.rating,
+        activeServices: data.active_services,
+        activeClients: data.active_clients,
+        teamSize: data.team_size,
+        operationalStatus: data.operational_status,
+        services: data.services,
+        recentNotes: data.recent_notes,
+        lastActivities: data.last_activities,
+        partners: data.partners,
+      };
+      setCurrentStore(mappedStore);
+    } catch (err) {
+      toast.error("Erro ao carregar os detalhes da loja");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useMemo(() => {
+    fetchStoreDetail();
+  }, [params.id]);
+
+  const activityChartData = useMemo(() => {
+    if (!currentStore?.lastActivities) return [];
+    
+    const grouped: { [key: string]: number } = {};
+    currentStore.lastActivities.forEach((activity) => {
+      const date = activity.date;
+      grouped[date] = (grouped[date] || 0) + 1;
+    });
+    
+    return Object.entries(grouped).map(([date, count]) => ({
+      date,
+      atividades: count,
+    }));
+  }, [currentStore?.lastActivities]);
 
   const openEditModal = () => {
     if (!currentStore) {
@@ -246,28 +169,31 @@ export default function AdminStoreDetail() {
   };
 
   const handleSaveEdit = () => {
+    // Integração futura: putAdminStore(currentStore.id, editForm)
     setCurrentStore((prev) =>
       prev
         ? {
             ...prev,
-            name: editForm.name,
-            owner: editForm.owner,
-            phone: editForm.phone,
-            email: editForm.email,
-            address: editForm.address,
-            plan: editForm.plan,
-            planPrice: editForm.planPrice,
-            operationalStatus: editForm.operationalStatus,
-            status: editForm.status,
+            ...editForm,
           }
         : prev,
     );
     setIsEditModalOpen(false);
+    toast.success("Loja atualizada localmente (MOCK).");
   };
 
   const openAuditModal = () => {
     setIsAuditModalOpen(true);
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-6 items-center justify-center py-16">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#820000]"></div>
+        <p className="text-zinc-600">Carregando detalhes da loja...</p>
+      </div>
+    );
+  }
 
   if (!currentStore) {
     return (
@@ -473,6 +399,52 @@ export default function AdminStoreDetail() {
                 Histórico recente
               </h3>
             </div>
+
+            {activityChartData.length > 0 && (
+              <div className="mb-6 p-3 bg-gradient-to-br from-zinc-50 to-zinc-100 rounded-lg border border-zinc-200">
+                <p className="text-xs font-semibold uppercase text-zinc-600 mb-3 tracking-wide">
+                   Distribuição por data
+                </p>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart 
+                    data={activityChartData}
+                    margin={{ top: 5, right: 10, left: -5, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="2 2" stroke="#d4d4d8" vertical={false} />
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{ fontSize: 11, fill: "#71717a" }}
+                      axisLine={{ stroke: "#e4e4e7" }}
+                      tickLine={false}
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 11, fill: "#71717a" }}
+                      axisLine={{ stroke: "#e4e4e7" }}
+                      tickLine={false}
+                      width={30}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#fff",
+                        border: "1.5px solid #820000",
+                        borderRadius: "6px",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                        padding: "6px 8px"
+                      }}
+                      formatter={(value) => [value, "Atividades"]}
+                      labelStyle={{ color: "#000", fontSize: 12, fontWeight: 600 }}
+                      cursor={{ fill: "rgba(130, 0, 0, 0.05)" }}
+                    />
+                    <Bar
+                      dataKey="atividades"
+                      fill="#820000"
+                      radius={[6, 6, 0, 0]}
+                      maxBarSize={40}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
 
             <div className="space-y-4">
               {currentStore.lastActivities.map((activity) => (

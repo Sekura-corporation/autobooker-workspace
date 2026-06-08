@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
 import {
   Plus,
   Filter,
@@ -23,6 +24,15 @@ import Input from "@/components/ui/Input";
 import StatusBadge from "@/components/shared/StatusBadge";
 import Modal from "@/components/ui/Modal";
 import Card from "@/components/ui/Card";
+import {
+  listAdminPartnerships,
+  createAdminPartnership,
+  updateAdminPartnership,
+  deleteAdminPartnership,
+  listAdminStores,
+  type AdminPartnership,
+  type AdminStore,
+} from "@/services/admin.service";
 
 type PartnershipStatus = "active" | "pending" | "paused" | "cancelled";
 
@@ -76,81 +86,9 @@ const PARTNERSHIP_TYPES: PartnerType[] = [
   "Outros",
 ];
 
-const STORE_OPTIONS = [
-  "Lava Rápido XL",
-  "Fiat Auto",
-  "Studio Black",
-  "Auto Shine Premium",
-  "VIP Detail Center",
-];
 
-const MOCK_PARTNERSHIPS: Partnership[] = [
-  {
-    id: 1,
-    storeName: "Lava Rápido XL",
-    partnerName: "Fiat Auto",
-    partnerType: "Concessionária",
-    region: "São Paulo - Capital",
-    contactName: "Carla Menezes",
-    contactEmail: "carla.menezes@fiatauto.com",
-    contactPhone: "(11) 98888-1122",
-    discountPercent: 15,
-    status: "active",
-    startDate: "2025-02-10",
-    createdAt: "2025-02-10",
-    benefits: ["Desconto em higienização", "Cupom cruzado", "Fila prioritária"],
-    notes: "Parceria ativa com foco em clientes premium da concessionária.",
-  },
-  {
-    id: 2,
-    storeName: "Studio Black",
-    partnerName: "BMW Motors",
-    partnerType: "Concessionária",
-    region: "Campinas - SP",
-    contactName: "Marcos Lima",
-    contactEmail: "marcos.lima@bmwmotors.com",
-    contactPhone: "(19) 97777-4455",
-    discountPercent: 12,
-    status: "active",
-    startDate: "2025-04-01",
-    createdAt: "2025-04-01",
-    benefits: ["Lavagem pós-entrega", "Desconto em vitrificação"],
-    notes: "Apoio em entrega técnica e indicação de serviços premium.",
-  },
-  {
-    id: 3,
-    storeName: "Auto Shine Premium",
-    partnerName: "Central Autopeças",
-    partnerType: "Autopeças",
-    region: "Ribeirão Preto - SP",
-    contactName: "Renata Souza",
-    contactEmail: "renata@centralautopecas.com",
-    contactPhone: "(16) 99990-3344",
-    discountPercent: 8,
-    status: "pending",
-    startDate: "2025-06-15",
-    createdAt: "2025-06-15",
-    benefits: ["Preço especial em insumos", "Recomendação mútua"],
-    notes: "Aguardando validação jurídica e assinatura do termo comercial.",
-  },
-  {
-    id: 4,
-    storeName: "VIP Detail Center",
-    partnerName: "Porto Seguros",
-    partnerType: "Seguradora",
-    region: "Santos - SP",
-    contactName: "Fernando Alves",
-    contactEmail: "fernando.alves@portoseguros.com",
-    contactPhone: "(13) 98810-2233",
-    discountPercent: 10,
-    status: "paused",
-    startDate: "2024-11-01",
-    createdAt: "2024-11-01",
-    updatedAt: "2025-03-20",
-    benefits: ["Sinistro com priorização", "Check-up gratuito"],
-    notes: "Parceria pausada para revisão de condições comerciais.",
-  },
-];
+
+const MOCK_PARTNERSHIPS: Partnership[] = [];
 
 const EMPTY_FORM_DATA: PartnershipFormData = {
   storeName: "",
@@ -172,14 +110,80 @@ export default function AdminPartnerships() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [partnerships, setPartnerships] = useState(MOCK_PARTNERSHIPS);
+  const [stores, setStores] = useState<AdminStore[]>([]);
   const [selectedPartnership, setSelectedPartnership] =
     useState<Partnership | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] =
-    useState<PartnershipFormData>(EMPTY_FORM_DATA);
+  const [formData, setFormData] = useState<PartnershipFormData>(EMPTY_FORM_DATA);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPartnerships = async () => {
+    setLoading(true);
+    try {
+      const response = await listAdminPartnerships();
+      const mapped: Partnership[] = response.data.map((item) => ({
+        id: item.id,
+        storeName: item.store_name,
+        partnerName: item.partner_name,
+        partnerType: item.partner_type as PartnerType,
+        region: item.region,
+        contactName: item.contact_name,
+        contactEmail: item.contact_email,
+        contactPhone: item.contact_phone,
+        discountPercent: item.discount_percent,
+        status: item.status as PartnershipStatus,
+        startDate: item.start_date,
+        createdAt: item.created_at,
+        benefits: item.benefits || [],
+        notes: item.notes || "",
+      }));
+      setPartnerships(mapped);
+    } catch (err) {
+      toast.error("Erro ao carregar parcerias");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStores = async () => {
+    try {
+      const response = await listAdminStores();
+      setStores(response || []);
+    } catch (err) {
+      console.error("Erro ao carregar lojas", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchPartnerships();
+    fetchStores();
+  }, []);
+
+  const maskPhone = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    if (digits.length <= 10) {
+      return digits
+        .slice(0, 10)
+        .replace(/(\d{2})(\d)/, "($1) $2")
+        .replace(/(\d{4})(\d{1,4})$/, "$1-$2");
+    }
+    return digits
+      .slice(0, 11)
+      .replace(/(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{5})(\d{1,4})$/, "$1-$2");
+  };
+
+  const handleDiscountChange = (value: string) => {
+    let digits = value.replace(/\D/g, "");
+    if (digits !== "") {
+      const num = parseInt(digits, 10);
+      if (num > 100) digits = "100";
+    }
+    setFormData((prev) => ({ ...prev, discountPercent: digits }));
+  };
 
   const filteredPartnerships = partnerships.filter((partnership) => {
     const searchValue = searchTerm.toLowerCase();
@@ -253,7 +257,7 @@ export default function AdminPartnerships() {
     setIsDeleteModalOpen(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (
       !formData.storeName ||
       !formData.partnerName ||
@@ -262,30 +266,21 @@ export default function AdminPartnerships() {
       !formData.contactPhone ||
       !formData.discountPercent
     ) {
-      alert("Preencha os campos obrigatórios da parceria.");
+      toast.error("Preencha os campos obrigatórios da parceria.");
       return;
     }
 
-    const payload: Partnership = {
-      id:
-        isEditing && selectedPartnership
-          ? selectedPartnership.id
-          : Math.max(...partnerships.map((item) => item.id), 0) + 1,
-      storeName: formData.storeName,
-      partnerName: formData.partnerName,
-      partnerType: formData.partnerType,
+    const payload: Partial<AdminPartnership> = {
+      store_name: formData.storeName,
+      partner_name: formData.partnerName,
+      partner_type: formData.partnerType,
       region: formData.region,
-      contactName: formData.contactName,
-      contactEmail: formData.contactEmail,
-      contactPhone: formData.contactPhone,
-      discountPercent: Number(formData.discountPercent),
+      contact_name: formData.contactName,
+      contact_email: formData.contactEmail,
+      contact_phone: formData.contactPhone,
+      discount_percent: parseInt(formData.discountPercent) || 0,
       status: formData.status,
-      startDate: formData.startDate,
-      createdAt:
-        isEditing && selectedPartnership
-          ? selectedPartnership.createdAt
-          : new Date().toISOString().split("T")[0],
-      updatedAt: new Date().toISOString().split("T")[0],
+      start_date: formData.startDate,
       benefits: formData.benefits
         .split(",")
         .map((item) => item.trim())
@@ -293,19 +288,25 @@ export default function AdminPartnerships() {
       notes: formData.notes,
     };
 
-    setPartnerships((prev) =>
-      isEditing && selectedPartnership
-        ? prev.map((item) =>
-            item.id === selectedPartnership.id ? payload : item,
-          )
-        : [payload, ...prev],
-    );
+    try {
+      if (isEditing && selectedPartnership) {
+        const item = await updateAdminPartnership(selectedPartnership.id, payload);
+        toast.success("Parceria atualizada com sucesso!");
+        fetchPartnerships();
+      } else {
+        const item = await createAdminPartnership(payload);
+        toast.success("Parceria cadastrada com sucesso!");
+        fetchPartnerships();
+      }
 
-    setIsFormModalOpen(false);
-    resetForm();
+      setIsFormModalOpen(false);
+      resetForm();
+    } catch (err) {
+      toast.error("Erro ao salvar parceria.");
+    }
   };
 
-  const togglePartnershipStatus = (partnership: Partnership) => {
+  const togglePartnershipStatus = async (partnership: Partnership) => {
     const nextStatus: PartnershipStatus =
       partnership.status === "active"
         ? "paused"
@@ -315,37 +316,47 @@ export default function AdminPartnerships() {
             ? "active"
             : "active";
 
-    const today = new Date().toISOString().split("T")[0];
-    setPartnerships((prev) =>
-      prev.map((item) =>
-        item.id === partnership.id
-          ? {
-              ...item,
-              status: nextStatus,
-              updatedAt: today,
-            }
-          : item,
-      ),
-    );
+    try {
+      await updateAdminPartnership(partnership.id, { status: nextStatus });
+      toast.success("Status atualizado!");
+      setPartnerships((prev) =>
+        prev.map((item) =>
+          item.id === partnership.id
+            ? {
+                ...item,
+                status: nextStatus,
+              }
+            : item,
+        ),
+      );
 
-    setSelectedPartnership((prev) =>
-      prev && prev.id === partnership.id
-        ? { ...prev, status: nextStatus, updatedAt: today }
-        : prev,
-    );
+      setSelectedPartnership((prev) =>
+        prev && prev.id === partnership.id
+          ? { ...prev, status: nextStatus }
+          : prev,
+      );
+    } catch (err) {
+      toast.error("Erro ao atualizar status");
+    }
   };
 
-  const handleDeletePartnership = () => {
+  const handleDeletePartnership = async () => {
     if (!selectedPartnership) {
       return;
     }
 
-    setPartnerships((prev) =>
-      prev.filter((item) => item.id !== selectedPartnership.id),
-    );
-    setIsDeleteModalOpen(false);
-    setIsDetailModalOpen(false);
-    setSelectedPartnership(null);
+    try {
+      await deleteAdminPartnership(selectedPartnership.id);
+      toast.success("Parceria apagada com sucesso!");
+      setPartnerships((prev) =>
+        prev.filter((item) => item.id !== selectedPartnership.id),
+      );
+      setIsDeleteModalOpen(false);
+      setIsDetailModalOpen(false);
+      setSelectedPartnership(null);
+    } catch (err) {
+      toast.error("Erro ao apagar parceria");
+    }
   };
 
   return (
@@ -463,7 +474,11 @@ export default function AdminPartnerships() {
           <Filter size={18} className="text-zinc-400 shrink-0" />
         </div>
 
-        {filteredPartnerships.length === 0 ? (
+        {loading ? (
+          <div className="py-10 flex justify-center items-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#820000]"></div>
+          </div>
+        ) : filteredPartnerships.length === 0 ? (
           <Card>
             <div className="py-10 text-center text-zinc-500">
               Nenhuma parceria encontrada com esses filtros.
@@ -613,9 +628,9 @@ export default function AdminPartnerships() {
                 }
               >
                 <option value="">Selecione a loja...</option>
-                {STORE_OPTIONS.map((store) => (
-                  <option key={store} value={store}>
-                    {store}
+                {stores.map((store) => (
+                  <option key={store.id} value={store.name}>
+                    {store.name}
                   </option>
                 ))}
               </select>
@@ -701,21 +716,16 @@ export default function AdminPartnerships() {
               onChange={(e) =>
                 setFormData((prev) => ({
                   ...prev,
-                  contactPhone: e.target.value,
+                  contactPhone: maskPhone(e.target.value),
                 }))
               }
             />
             <Input
               label="Desconto (%)"
-              placeholder="15"
-              type="number"
+              placeholder="Ex: 15"
+              type="text"
               value={formData.discountPercent}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  discountPercent: e.target.value,
-                }))
-              }
+              onChange={(e) => handleDiscountChange(e.target.value)}
             />
             <Input
               label="Data de Início"

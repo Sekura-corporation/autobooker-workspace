@@ -101,6 +101,15 @@ api.interceptors.response.use(
       }
     }
 
+    if (error.response?.status === 503 && error.response?.data?.maintenance) {
+      if (typeof window !== "undefined") {
+        clearAuthToken();
+        if (window.location.pathname !== "/manutencao") {
+          window.location.href = "/manutencao";
+        }
+      }
+    }
+
     if (error.response?.status === 401) {
       clearAuthToken();
       if (typeof window !== "undefined") {

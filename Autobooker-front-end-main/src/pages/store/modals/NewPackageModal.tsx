@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import api from "@/services/api";
 import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import { unmaskCurrency } from "@/utils/masks";
 
 interface PackageData {
   id?: number;
@@ -57,7 +60,7 @@ export default function NewPackageModal({
     event.preventDefault();
 
     if (!packageName.trim()) {
-      alert("Informe o nome do pacote.");
+      toast.error("Informe o nome do pacote.");
       return;
     }
 
@@ -67,17 +70,17 @@ export default function NewPackageModal({
       const payload = {
         name: packageName,
         description,
-        price: Number(packagePrice.replace(",", ".")),
+        price: unmaskCurrency(packagePrice),
         sessions: Number(sessions),
         validity_days: Number(validityDays),
       };
 
       if (initialData?.id) {
         await api.put(`/store/packages/${initialData.id}`, payload);
-        alert("Pacote atualizado com sucesso!");
+        toast.success("Pacote atualizado com sucesso!");
       } else {
         await api.post("/store/packages", payload);
-        alert("Pacote criado com sucesso!");
+        toast.success("Pacote criado com sucesso!");
       }
 
       if (onSaved) {
@@ -87,7 +90,7 @@ export default function NewPackageModal({
       onClose();
     } catch (error: any) {
       console.error("Erro ao salvar pacote:", error);
-      alert(error?.response?.data?.message || "Erro ao salvar pacote.");
+      toast.error(error?.response?.data?.message || "Erro ao salvar pacote.");
     } finally {
       setLoading(false);
     }
@@ -137,47 +140,36 @@ export default function NewPackageModal({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-bold text-zinc-900 mb-2">
-                Preço *
-              </label>
-              <input
-                type="text"
-                value={packagePrice}
-                onChange={(e) => setPackagePrice(e.target.value)}
-                placeholder="Ex: 180.00"
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-bold text-green-700 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-600/20 focus:border-green-600"
-                required
-              />
-            </div>
+            <Input
+              label="Preço *"
+              placeholder="R$ 79,90"
+              mask="currency"
+              value={packagePrice}
+              onChange={(e) => setPackagePrice(e.target.value)}
+              required
+            />
 
-            <div>
-              <label className="block text-sm font-bold text-zinc-900 mb-2">
-                Sessões *
-              </label>
-              <input
-                type="number"
-                min={1}
-                value={sessions}
-                onChange={(e) => setSessions(e.target.value)}
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-bold text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
-                required
-              />
-            </div>
+            <Input
+              label="Sessões *"
+              type="number"
+              min={1}
+              mask="integer"
+              placeholder="1"
+              value={sessions}
+              onChange={(e) => setSessions(e.target.value)}
+              required
+            />
 
-            <div>
-              <label className="block text-sm font-bold text-zinc-900 mb-2">
-                Validade/dias *
-              </label>
-              <input
-                type="number"
-                min={1}
-                value={validityDays}
-                onChange={(e) => setValidityDays(e.target.value)}
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-bold text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
-                required
-              />
-            </div>
+            <Input
+              label="Validade/dias *"
+              type="number"
+              min={1}
+              mask="integer"
+              placeholder="30"
+              value={validityDays}
+              onChange={(e) => setValidityDays(e.target.value)}
+              required
+            />
           </div>
 
           <div className="flex items-center gap-3 pt-2">

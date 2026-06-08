@@ -31,7 +31,7 @@ class AppointmentController extends Controller
             ->limit(max(1, min($limit, 200)))
             ->get();
 
-        return response()->json($appointments->map(fn (Appointment $a) => $this->appointmentJson($a)));
+        return response()->json($appointments->map(fn(Appointment $a) => $this->appointmentJson($a)));
     }
 
     public function store(Request $request)
@@ -40,6 +40,7 @@ class AppointmentController extends Controller
             'storeId' => ['required'],
             'vehicleId' => ['nullable'],
             'serviceId' => ['nullable'],
+            'packageId' => ['nullable'],
             'scheduledAt' => ['required', 'date'],
             'customerId' => ['nullable'],
             'notes' => ['nullable', 'string'],
@@ -48,6 +49,12 @@ class AppointmentController extends Controller
         ]);
 
         $scheduled = Carbon::parse($validated['scheduledAt']);
+
+        if ($scheduled->lessThan(now())) {
+            return response()->json([
+                'message' => 'Não é possível agendar para uma data ou horário passado.',
+            ], 422);
+        }
 
         $alreadyExists = Appointment::where('store_id', (int) $validated['storeId'])
             ->whereDate('appointment_date', $scheduled->toDateString())
@@ -65,7 +72,13 @@ class AppointmentController extends Controller
             'client_id' => $request->user()->id,
             'store_id' => (int) $validated['storeId'],
             'vehicle_id' => $validated['vehicleId'] ? (int) $validated['vehicleId'] : 1,
-            'service_id' => $validated['serviceId'] ? (int) $validated['serviceId'] : 1,
+            'service_id' => !empty($validated['serviceId'])
+                ? (int) $validated['serviceId']
+                : null,
+
+            'package_id' => !empty($validated['packageId'])
+                ? (int) $validated['packageId']
+                : null,
             'appointment_date' => $scheduled->toDateString(),
             'appointment_time' => $scheduled->format('H:i:s'),
             'status' => $validated['status'] ?? 'pending',
@@ -114,7 +127,7 @@ class AppointmentController extends Controller
 
     private function appointmentJson(Appointment $appointment): array
     {
-        $appointment->loadMissing(['store', 'vehicle', 'service']);
+        $appointment->loadMissing(['store.owner', 'vehicle', 'service', 'package']);
 
         $scheduledAt = null;
 
@@ -122,7 +135,7 @@ class AppointmentController extends Controller
             $date = Carbon::parse($appointment->appointment_date)->toDateString();
             $time = Carbon::parse($appointment->appointment_time)->format('H:i:s');
 
-            $scheduledAt = Carbon::parse($date . ' ' . $time)->toISOString();
+            $scheduledAt = Carbon::parse($date . ' ' . $time)->format('Y-m-d\TH:i:s');
         }
 
         return [
@@ -130,20 +143,33 @@ class AppointmentController extends Controller
             'customerId' => (string) $appointment->client_id,
             'storeId' => (string) $appointment->store_id,
             'vehicleId' => (string) $appointment->vehicle_id,
-            'serviceId' => (string) $appointment->service_id,
+            'serviceId' => $appointment->service_id ? (string) $appointment->service_id : null,
+            'packageId' => $appointment->package_id ? (string) $appointment->package_id : null,
             'scheduledAt' => $scheduledAt,
             'status' => $appointment->status,
+            'storePhone' => optional($appointment->store->owner)->phone ?? optional($appointment->store)->phone,
 
             'storeName' => optional($appointment->store)->name ?? 'Loja selecionada',
-            'service' => optional($appointment->service)->name ?? 'Serviço agendado',
+            'service' =>
+                optional($appointment->package)->name
+                ?? optional($appointment->service)->name
+                ?? 'Serviço agendado',
             'vehicle' => trim((optional($appointment->vehicle)->brand ?? '') . ' ' . (optional($appointment->vehicle)->model ?? '')),
             'plate' => optional($appointment->vehicle)->plate ?? '',
-            'duration' => optional($appointment->service)->duration_minutes
-                ? optional($appointment->service)->duration_minutes . ' min'
-                : '60 min',
+            'duration' => $appointment->package_id
+                ? 'Pacote VIP'
+                : (
+                    optional($appointment->service)->duration_minutes
+                        ? optional($appointment->service)->duration_minutes . ' min'
+                        : '60 min'
+                ),
             'price' => $appointment->price !== null
                 ? (float) $appointment->price
-                : (float) (optional($appointment->service)->price ?? 0),
+                : (float) (
+                    optional($appointment->package)->price
+                    ?? optional($appointment->service)->price
+                    ?? 0
+                ),
 
             'notes' => $appointment->notes,
             'createdAt' => optional($appointment->created_at)->toISOString(),

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import api from "@/services/api";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -31,7 +32,7 @@ export default function StoreReports() {
       setReport(data.data);
     } catch (error) {
       console.error("Erro ao carregar relatórios:", error);
-      alert("Erro ao carregar relatórios.");
+      toast.error("Erro ao carregar relatórios.");
     } finally {
       setLoading(false);
     }

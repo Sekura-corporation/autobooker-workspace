@@ -3,7 +3,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
 import {
   Bell,
-  Camera,
   KeyRound,
   Lock,
   ShieldCheck,
@@ -14,9 +13,10 @@ import PageHeader from "@/components/shared/PageHeader";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
-import Avatar from "@/components/ui/Avatar";
+import AvatarUpload from "@/components/ui/AvatarUpload";
 import Badge from "@/components/ui/Badge";
 import { ROLES } from "@/utils/constants";
+import { updateProfile, changePassword } from "@/services/auth.service";
 import {
   getPasswordStrength,
   isEmpty,
@@ -106,14 +106,6 @@ export default function AdminProfile() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
-  const initials = profile.name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-
   const handleSaveProfile = async () => {
     const nextErrors: ProfileErrors = {};
 
@@ -138,20 +130,38 @@ export default function AdminProfile() {
 
     setIsSavingProfile(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 350));
+      const updatedUser = await updateProfile({
+        name: profile.name,
+        email: profile.email,
+        phone: profile.phone,
+      });
+
+      // Update notifications locally as they might not be fully supported in the backend yet
       localStorage.setItem(
         PROFILE_STORAGE_KEY,
         JSON.stringify({
           id: user?.id,
           role: user?.role,
-          ...profile,
+          notifications: profile.notifications,
         }),
       );
+
       updateUser({
-        name: profile.name,
-        email: profile.email,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
       });
+
       toast.success("Perfil atualizado com sucesso.");
+    } catch (error: any) {
+      if (error.response?.data?.errors) {
+        const backendErrors = error.response.data.errors;
+        if (backendErrors.email) setErrors((prev) => ({ ...prev, email: backendErrors.email[0] }));
+        if (backendErrors.phone) setErrors((prev) => ({ ...prev, phone: backendErrors.phone[0] }));
+        toast.error("Alguns dados são inválidos.");
+      } else {
+        toast.error("Erro ao atualizar o perfil. Tente novamente.");
+      }
     } finally {
       setIsSavingProfile(false);
     }
@@ -186,13 +196,31 @@ export default function AdminProfile() {
 
     setIsChangingPassword(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 350));
-      toast.success("Senha validada com sucesso.");
+      await changePassword({
+        current_password: passwordForm.currentPassword,
+        new_password: passwordForm.newPassword,
+        new_password_confirmation: passwordForm.confirmPassword,
+      });
+
+      toast.success("Senha alterada com sucesso.");
       setPasswordForm({
         currentPassword: "",
         newPassword: "",
         confirmPassword: "",
       });
+    } catch (error: any) {
+      if (error.response?.data?.errors) {
+        const backendErrors = error.response.data.errors;
+        if (backendErrors.current_password) {
+          setErrors((prev) => ({ ...prev, currentPassword: backendErrors.current_password[0] }));
+        }
+        if (backendErrors.new_password) {
+          setErrors((prev) => ({ ...prev, newPassword: backendErrors.new_password[0] }));
+        }
+        toast.error("Verifique os campos de senha.");
+      } else {
+        toast.error("Erro ao alterar senha. Tente novamente.");
+      }
     } finally {
       setIsChangingPassword(false);
     }
@@ -227,12 +255,12 @@ export default function AdminProfile() {
           <Card className="p-6">
             <div className="flex items-start justify-between gap-4 mb-6">
               <div className="flex items-center gap-4">
-                <div className="relative">
-                  <Avatar initials={initials || "AD"} size="lg" />
-                  <button className="absolute -bottom-1 -right-1 rounded-full bg-[#820000] p-2 text-white shadow-lg">
-                    <Camera size={14} />
-                  </button>
-                </div>
+                <AvatarUpload
+                  name={profile.name}
+                  avatar={user?.avatar}
+                  size="lg"
+                  onAvatarChange={(avatar) => updateUser({ avatar })}
+                />
                 <div>
                   <h3 className="text-2xl font-black text-zinc-900">
                     {profile.name}

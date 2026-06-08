@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import api from "@/services/api";
 import { CalendarDays, ChevronDown, Clock3, X } from "lucide-react";
 import Button from "@/components/ui/Button";
@@ -44,7 +45,7 @@ export default function NewAppointmentModal({
         }
       } catch (error) {
         console.error("Erro ao carregar serviços:", error);
-        alert("Erro ao carregar serviços da loja.");
+        toast.error("Erro ao carregar serviços da loja.");
       }
     }
 
@@ -65,7 +66,7 @@ export default function NewAppointmentModal({
 
   async function handleSearchClient() {
     if (!phone) {
-      alert("Informe o telefone do cliente.");
+      toast.error("Informe o telefone do cliente.");
       return;
     }
 
@@ -83,7 +84,7 @@ export default function NewAppointmentModal({
         setVehicleId(String(foundClient.vehicles[0].id));
       }
 
-      alert(`Cliente encontrado: ${foundClient.name}`);
+      toast.success(`Cliente encontrado: ${foundClient.name}`);
     } catch (error: any) {
       console.error("Erro ao buscar cliente:", error);
 
@@ -91,7 +92,7 @@ export default function NewAppointmentModal({
       setVehicles([]);
       setVehicleId("");
 
-      alert(error?.response?.data?.message || "Cliente não encontrado.");
+      toast.error(error?.response?.data?.message || "Cliente não encontrado.");
     }
   }
 
@@ -99,7 +100,7 @@ export default function NewAppointmentModal({
     event.preventDefault();
 
     if (!phone || !vehicleId || !appointmentDate || !appointmentTime || !serviceId) {
-      alert("Preencha todos os campos e selecione um veículo.");
+      toast.error("Preencha todos os campos e selecione um veículo.");
       return;
     }
 
@@ -114,7 +115,7 @@ export default function NewAppointmentModal({
         service_id: serviceId,
       });
 
-      alert("Agendamento criado com sucesso!");
+      toast.success("Agendamento criado com sucesso!");
 
       resetForm();
       onClose();
@@ -128,7 +129,7 @@ export default function NewAppointmentModal({
       const message =
         error?.response?.data?.message || "Erro ao criar agendamento.";
 
-      alert(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }

@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import api from "@/services/api";
 import PageHeader from "@/components/shared/PageHeader";
-import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import NewPackageModal from "./modals/NewPackageModal";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 interface ServicePackage {
   id: number;
@@ -22,6 +23,7 @@ export default function StorePackages() {
     null,
   );
   const [loading, setLoading] = useState(true);
+  const [packageToDelete, setPackageToDelete] = useState<number | null>(null);
 
   useEffect(() => {
     loadPackages();
@@ -36,7 +38,7 @@ export default function StorePackages() {
       setPackages(data.data || []);
     } catch (error) {
       console.error("Erro ao carregar pacotes:", error);
-      alert("Erro ao carregar pacotes.");
+      toast.error("Erro ao carregar pacotes.");
     } finally {
       setLoading(false);
     }
@@ -61,20 +63,18 @@ export default function StorePackages() {
     setIsNewPackageModalOpen(true);
   }
 
-  async function handleDeletePackage(id: number) {
-    const confirmed = confirm("Tem certeza que deseja excluir este pacote?");
-
-    if (!confirmed) return;
+  async function confirmDeletePackage() {
+    if (packageToDelete === null) return;
 
     try {
-      await api.delete(`/store/packages/${id}`);
-
-      alert("Pacote excluído com sucesso!");
-
+      await api.delete(`/store/packages/${packageToDelete}`);
+      toast.success("Pacote excluído com sucesso!");
       await loadPackages();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro ao excluir pacote:", error);
-      alert(error?.response?.data?.message || "Erro ao excluir pacote.");
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || "Erro ao excluir pacote.");
+      throw error;
     }
   }
 
@@ -93,103 +93,92 @@ export default function StorePackages() {
       </PageHeader>
 
       <div>
-        <Card className="rounded-md border-zinc-200 !p-4 md:!p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-3xl sm:text-2xl font-bold text-zinc-900 mb-0">
-              Combos e Pacotes
-            </h2>
-          </div>
+        <div className="grid grid-cols-1 gap-4">
+          <div className="bg-white rounded-2xl border border-zinc-200 shadow-lg shadow-zinc-200/40 overflow-hidden transition-all duration-300 hover:shadow-xl">
+            <div className="p-5 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-100">
+              <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 mb-0 tracking-tight">
+                Combos e Pacotes
+              </h2>
+            </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-zinc-300">
-                  <th className="text-left py-3 pr-2 font-bold text-zinc-700">
-                    Pacote
-                  </th>
-                  <th className="text-left py-3 pr-2 font-bold text-zinc-700">
-                    Inclusos
-                  </th>
-                  <th className="text-left py-3 pr-2 font-bold text-zinc-700">
-                    Sessões
-                  </th>
-                  <th className="text-left py-3 pr-2 font-bold text-zinc-700">
-                    Validade
-                  </th>
-                  <th className="text-left py-3 pr-2 font-bold text-zinc-700 w-32">
-                    Valor
-                    <br />
-                    Promocional
-                  </th>
-                  <th className="w-[160px]" />
-                </tr>
-              </thead>
-
-              <tbody>
-                {loading && (
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-500 uppercase tracking-wider text-[11px] font-bold">
                   <tr>
-                    <td colSpan={6} className="py-4 text-zinc-500">
-                      Carregando pacotes...
-                    </td>
+                    <th className="py-4 px-6 whitespace-nowrap">Pacote</th>
+                    <th className="py-4 px-6 whitespace-nowrap">Inclusos</th>
+                    <th className="py-4 px-6 whitespace-nowrap">Sessões</th>
+                    <th className="py-4 px-6 whitespace-nowrap">Validade</th>
+                    <th className="py-4 px-6 whitespace-nowrap">Valor Promocional</th>
+                    <th className="w-[180px]"></th>
                   </tr>
-                )}
+                </thead>
 
-                {!loading && packages.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="py-4 text-zinc-500">
-                      Nenhum pacote cadastrado.
-                    </td>
-                  </tr>
-                )}
-
-                {!loading &&
-                  packages.map((pkg) => (
-                    <tr key={pkg.id} className="border-b border-zinc-200">
-                      <td className="py-4 pr-2 font-bold text-zinc-900">
-                        {pkg.name}
-                      </td>
-
-                      <td className="py-4 pr-2 text-zinc-500">
-                        {pkg.description || "Sem descrição"}
-                      </td>
-
-                      <td className="py-4 pr-2 text-zinc-700 font-medium">
-                        {pkg.sessions} {pkg.sessions === 1 ? "sessão" : "sessões"}
-                      </td>
-
-                      <td className="py-4 pr-2 text-zinc-700 font-medium">
-                        {pkg.validity_days} dias
-                      </td>
-
-                      <td className="py-4 pr-2 text-emerald-600 font-medium">
-                        {formatCurrency(pkg.price)}
-                      </td>
-
-                      <td className="py-4 pl-2 text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            onClick={() => handleOpenEditModal(pkg)}
-                            className="!rounded-md !py-1.5 !px-5 text-sm font-bold text-[#820000] border-[#820000] hover:bg-[#820000]/10"
-                          >
-                            Editar
-                          </Button>
-
-                          <Button
-                            variant="outline"
-                            onClick={() => handleDeletePackage(pkg.id)}
-                            className="!rounded-md !py-1.5 !px-5 text-sm font-bold !text-red-600 !border-red-600 hover:!bg-red-50"
-                          >
-                            Excluir
-                          </Button>
-                        </div>
+                <tbody className="divide-y divide-zinc-100">
+                  {loading && (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-zinc-500 text-sm font-medium">
+                        Carregando pacotes...
                       </td>
                     </tr>
-                  ))}
-              </tbody>
-            </table>
+                  )}
+
+                  {!loading && packages.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-zinc-500 text-sm font-medium">
+                        Nenhum pacote cadastrado. Clique em "Montar Pacote".
+                      </td>
+                    </tr>
+                  )}
+
+                  {!loading &&
+                    packages.map((pkg) => (
+                      <tr key={pkg.id} className="hover:bg-zinc-50/50 transition-colors">
+                        <td className="py-4 px-6 text-zinc-800">
+                          <div className="font-semibold text-sm mb-1">{pkg.name}</div>
+                        </td>
+
+                        <td className="py-4 px-6 text-zinc-600 font-medium">
+                          {pkg.description || <span className="text-zinc-400 italic">Sem descrição</span>}
+                        </td>
+
+                        <td className="py-4 px-6 text-zinc-700 font-medium whitespace-nowrap">
+                          {pkg.sessions} {pkg.sessions === 1 ? "sessão" : "sessões"}
+                        </td>
+
+                        <td className="py-4 px-6 text-zinc-700 font-medium whitespace-nowrap">
+                          {pkg.validity_days} dias
+                        </td>
+
+                        <td className="py-4 px-6 font-bold text-emerald-700 whitespace-nowrap">
+                          {formatCurrency(pkg.price)}
+                        </td>
+
+                        <td className="py-4 px-6 text-right whitespace-nowrap">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              onClick={() => handleOpenEditModal(pkg)}
+                              className="!rounded-md !py-1.5 !px-4 text-xs font-semibold mr-2 bg-white hover:bg-zinc-100 transition-colors shadow-sm"
+                            >
+                              Editar
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => setPackageToDelete(pkg.id)}
+                              className="!rounded-md !py-1.5 !px-4 text-xs font-semibold text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 transition-colors bg-white shadow-sm"
+                            >
+                              Excluir
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </Card>
+        </div>
       </div>
 
       <NewPackageModal
@@ -198,6 +187,16 @@ export default function StorePackages() {
         title={modalTitle}
         initialData={selectedPackage}
         onSaved={loadPackages}
+      />
+
+      <ConfirmDialog
+        isOpen={packageToDelete !== null}
+        onClose={() => setPackageToDelete(null)}
+        onConfirm={confirmDeletePackage}
+        title="Excluir pacote"
+        message="Tem certeza que deseja excluir este pacote? Essa ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        variant="danger"
       />
     </div>
   );

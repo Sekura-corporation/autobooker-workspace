@@ -15,6 +15,7 @@ interface PersistedUserProfile {
   name: string;
   email: string;
   phone?: string;
+  avatar?: string | null;
   notifications?: {
     email: boolean;
     browser: boolean;
@@ -131,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: nextUser.name,
         email: nextUser.email,
         phone: nextUser.phone,
+        avatar: nextUser.avatar,
       });
 
       return nextUser;

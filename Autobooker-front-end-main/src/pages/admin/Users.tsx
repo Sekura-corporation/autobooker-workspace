@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import {
   Plus,
   Calendar,
@@ -17,6 +18,7 @@ import Modal from "@/components/ui/Modal";
 import Card from "@/components/ui/Card";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
+import { listAdminUsers, toggleBlockUser, createAdminUser, type AdminUser } from "@/services/admin.service";
 
 interface User {
   id: number;
@@ -97,24 +99,23 @@ const ACTIVITY_LOGS: ActivityLog[] = [
 
 const PROFILE_OPTIONS = [
   { value: "admin", label: "Administrador Global" },
-  { value: "manager", label: "Gerente" },
-  { value: "operator", label: "Operador" },
-  { value: "analyst", label: "Analista" },
+  { value: "store_owner", label: "Proprietário de Loja" },
 ];
 
 type UserFormData = {
   name: string;
   email: string;
   phone: string;
-  store: string;
-  profile: User["profile"];
+  role: "admin" | "store_owner" | "client";
 };
 
 export default function AdminUsers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [profileFilter, setProfileFilter] = useState<string>("all");
-  const [users, setUsers] = useState(MOCK_USERS);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
 
@@ -122,67 +123,72 @@ export default function AdminUsers() {
     name: "",
     email: "",
     phone: "",
-    store: "",
-    profile: "operator",
+    role: "admin",
+  });
+
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const data = await listAdminUsers({ search: searchTerm, role: profileFilter === "all" ? undefined : profileFilter });
+      setUsers(data.data);
+    } catch (err) {
+      toast.error("Erro ao buscar usuários");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Carrega ao montar ou quando filtros mudarem na API (aqui faremos filtro local por enquanto)
+  useState(() => {
+    fetchUsers();
   });
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.includes(searchTerm);
+      user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesProfile =
-      profileFilter === "all" || user.profile === profileFilter;
+      profileFilter === "all" || user.role === profileFilter;
     return matchesSearch && matchesProfile;
   });
 
-  const handleRegisterSubmit = () => {
+  const handleRegisterSubmit = async () => {
     if (!formData.name || !formData.email) {
-      alert("Preencha todos os campos obrigatórios!");
+      toast.error("Preencha todos os campos obrigatórios!");
       return;
     }
 
-    const newUser: User = {
-      id: Math.max(...users.map((u) => u.id), 0) + 1,
-      name: formData.name,
-      email: formData.email,
-      profile: formData.profile,
-      status: "pending",
-      createdAt: new Date().toISOString().split("T")[0],
-    };
-
-    setUsers((prev) => [...prev, newUser]);
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      store: "",
-      profile: "operator",
-    });
-    setIsRegisterModalOpen(false);
+    try {
+      await createAdminUser(formData);
+      toast.success("Usuário criado e e-mail de acesso enviado!");
+      setIsRegisterModalOpen(false);
+      setFormData({ name: "", email: "", phone: "", role: "admin" });
+      fetchUsers(); // Recarrega a tabela real
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Erro ao criar usuário");
+    }
   };
 
-  const handleDetail = (user: User) => {
+  const handleDetail = (user: AdminUser) => {
     setSelectedUser(user);
     setIsDetailModalOpen(true);
   };
 
-  const handleBlockUser = () => {
+  const handleBlockUser = async () => {
     if (selectedUser) {
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === selectedUser.id
-            ? { ...u, status: u.status === "blocked" ? "active" : "blocked" }
-            : u,
-        ),
-      );
-      setSelectedUser((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: prev.status === "blocked" ? "active" : "blocked",
-            }
-          : null,
-      );
+      try {
+        const response = await toggleBlockUser(selectedUser.id);
+        toast.success(response.message);
+        
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === selectedUser.id ? { ...u, blocked: response.blocked } : u
+          )
+        );
+        setSelectedUser({ ...selectedUser, blocked: response.blocked });
+      } catch (err) {
+        toast.error("Erro ao alterar o bloqueio do usuário.");
+      }
     }
   };
 
@@ -246,79 +252,87 @@ export default function AdminUsers() {
           onChange={(e) => setProfileFilter(e.target.value)}
         >
           <option value="all">Todos os Perfis</option>
-          {PROFILE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
+          <option value="admin">Administrador Global</option>
+          <option value="store_owner">Proprietário de Loja</option>
+          <option value="client">Cliente</option>
         </select>
       </div>
 
       <Card>
         <div className="overflow-x-auto">
-          <DataTable<User>
-            columns={[
-              {
-                key: "name",
-                label: "Usuário / Email",
-                sortable: true,
-                render: (_, row) => (
-                  <div className="min-w-0">
-                    <p className="font-bold text-zinc-900">{row.name}</p>
-                    <p className="text-xs text-zinc-500 break-all">
-                      {row.email}
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#820000]"></div>
+            </div>
+          ) : (
+            <DataTable<AdminUser>
+              columns={[
+                {
+                  key: "name",
+                  label: "Usuário / Email",
+                  sortable: true,
+                  render: (_, row) => (
+                    <div className="min-w-0">
+                      <p className="font-bold text-zinc-900">{row.name}</p>
+                      <p className="text-xs text-zinc-500 break-all">
+                        {row.email}
+                      </p>
+                    </div>
+                  ),
+                },
+                {
+                  key: "role",
+                  label: "Perfil",
+                  sortable: true,
+                  render: (role: unknown) => {
+                    const r = role as string;
+                    const label = r === "admin" ? "Administrador" : r === "store_owner" ? "Lojista" : "Cliente";
+                    return (
+                      <p className="text-sm font-medium text-zinc-900">
+                        {label}
+                      </p>
+                    )
+                  },
+                },
+                {
+                  key: "created_at",
+                  label: "Cadastro",
+                  sortable: true,
+                  render: (date: unknown) => (
+                    <p className="text-sm text-zinc-900">
+                      {new Date(date as string).toLocaleDateString("pt-BR")}
                     </p>
-                  </div>
-                ),
-              },
-              {
-                key: "profile",
-                label: "Perfil",
-                sortable: true,
-                render: (profile: unknown) => (
-                  <p className="text-sm font-medium text-zinc-900">
-                    {getProfileLabel(profile as string)}
-                  </p>
-                ),
-              },
-              {
-                key: "createdAt",
-                label: "Cadastro",
-                sortable: true,
-                render: (date: unknown) => (
-                  <p className="text-sm text-zinc-900">
-                    {new Date(date as string).toLocaleDateString("pt-BR")}
-                  </p>
-                ),
-              },
-              {
-                key: "status",
-                label: "Status",
-                sortable: true,
-                render: (status: unknown) => (
-                  <StatusBadge status={getStatusBadgeType(status as string)} />
-                ),
-              },
-              {
-                key: "id",
-                label: "Ações",
-                sortable: false,
-                render: (_, row) => (
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Button
-                      variant="outline"
-                      className="text-xs px-3 py-2 whitespace-nowrap"
-                      onClick={() => handleDetail(row)}
-                    >
-                      Detalhes
-                    </Button>
-                  </div>
-                ),
-              },
-            ]}
-            data={filteredUsers}
-            emptyMessage="Nenhum usuário encontrado"
-          />
+                  ),
+                },
+                {
+                  key: "blocked",
+                  label: "Status",
+                  sortable: true,
+                  render: (blocked: unknown, row) => (
+                    <StatusBadge status={blocked ? "cancelled" : "active"} />
+                  ),
+                },
+                {
+                  key: "id",
+                  label: "Ações",
+                  sortable: false,
+                  render: (_, row) => (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Button
+                        variant="outline"
+                        className="text-xs px-3 py-2 whitespace-nowrap"
+                        onClick={() => handleDetail(row)}
+                      >
+                        Detalhes
+                      </Button>
+                    </div>
+                  ),
+                },
+              ]}
+              data={filteredUsers}
+              emptyMessage="Nenhum usuário encontrado"
+            />
+          )}
         </div>
       </Card>
 
@@ -386,11 +400,11 @@ export default function AdminUsers() {
               </label>
               <select
                 className="w-full px-4 py-3 rounded-lg border-2 border-zinc-200 transition-all font-medium text-sm focus:outline-none focus:border-[#820000]"
-                value={formData.profile}
+                value={formData.role}
                 onChange={(e) =>
                   setFormData((prev) => ({
                     ...prev,
-                    profile: e.target.value as User["profile"],
+                    role: e.target.value as UserFormData["role"],
                   }))
                 }
               >
@@ -404,14 +418,10 @@ export default function AdminUsers() {
               {/* Descrição do Perfil */}
               <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-xs font-semibold text-blue-900 mb-1">
-                  {formData.profile === "admin" &&
-                    "Administrador Global - Acesso total ao sistema"}
-                  {formData.profile === "manager" &&
-                    "Gerente - Gerencia lojas e operadores"}
-                  {formData.profile === "operator" &&
-                    "Operador - Gerencia agendamentos e clientes"}
-                  {formData.profile === "analyst" &&
-                    "Analista - Visualiza relatórios e dados"}
+                  {formData.role === "admin" &&
+                    "Administrador Global - Acesso total à plataforma Autobooker"}
+                  {formData.role === "store_owner" &&
+                    "Proprietário de Loja - Lojista que gerenciará uma estética"}
                 </p>
               </div>
             </div>
@@ -422,7 +432,7 @@ export default function AdminUsers() {
             <h4 className="text-sm font-bold text-zinc-900 mb-3 pb-2 border-b border-zinc-200">
               Informações de Contato
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <Input
                 label="Telefone / WhatsApp"
                 placeholder="(11) 98765-4321"
@@ -431,116 +441,6 @@ export default function AdminUsers() {
                   setFormData((prev) => ({ ...prev, phone: e.target.value }))
                 }
               />
-
-              {formData.profile !== "admin" && (
-                <div>
-                  <label className="block text-sm font-semibold text-zinc-900 mb-2">
-                    Loja Associada
-                  </label>
-                  <select
-                    className="w-full px-4 py-3 rounded-lg border-2 border-zinc-200 transition-all font-medium text-sm focus:outline-none focus:border-[#820000]"
-                    value={formData.store || ""}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        store: e.target.value,
-                      }))
-                    }
-                  >
-                    <option value="">Selecionar loja...</option>
-                    <option value="Douglas Details">Douglas Details</option>
-                    <option value="Auto Estética VIP">Auto Estética VIP</option>
-                    <option value="Lava Jato Central">Lava Jato Central</option>
-                  </select>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Seção 4: Permissões */}
-          {formData.profile !== "admin" && (
-            <div>
-              <h4 className="text-sm font-bold text-zinc-900 mb-3 pb-2 border-b border-zinc-200">
-                Permissões
-              </h4>
-              <div className="space-y-2">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    defaultChecked
-                    className="w-4 h-4 rounded border-2 border-zinc-300 cursor-pointer"
-                  />
-                  <span className="text-sm font-medium text-zinc-900">
-                    Gerenciar Agendamentos
-                  </span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    defaultChecked
-                    className="w-4 h-4 rounded border-2 border-zinc-300 cursor-pointer"
-                  />
-                  <span className="text-sm font-medium text-zinc-900">
-                    Visualizar Clientes
-                  </span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 rounded border-2 border-zinc-300 cursor-pointer"
-                  />
-                  <span className="text-sm font-medium text-zinc-900">
-                    Exportar Relatórios
-                  </span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 rounded border-2 border-zinc-300 cursor-pointer"
-                  />
-                  <span className="text-sm font-medium text-zinc-900">
-                    Gerenciar Configurações
-                  </span>
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* Seção 5: Configurações Iniciais */}
-          <div>
-            <h4 className="text-sm font-bold text-zinc-900 mb-3 pb-2 border-b border-zinc-200">
-              Configurações Iniciais
-            </h4>
-            <div className="space-y-3">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  defaultChecked
-                  className="w-4 h-4 rounded border-2 border-zinc-300 cursor-pointer"
-                />
-                <span className="text-sm font-medium text-zinc-900">
-                  Enviar e-mail de confirmação
-                </span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded border-2 border-zinc-300 cursor-pointer"
-                />
-                <span className="text-sm font-medium text-zinc-900">
-                  Exigir mudança de senha no primeiro acesso
-                </span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  defaultChecked
-                  className="w-4 h-4 rounded border-2 border-zinc-300 cursor-pointer"
-                />
-                <span className="text-sm font-medium text-zinc-900">
-                  Autenticação de dois fatores (2FA)
-                </span>
-              </label>
             </div>
           </div>
 
@@ -552,9 +452,7 @@ export default function AdminUsers() {
                 Nota Importante
               </p>
               <p className="text-xs text-blue-900">
-                Um e-mail de confirmação será enviado ao novo usuário com
-                instruções para ativar sua conta. Todas as ações serão
-                registradas para fins de auditoria.
+                Uma senha provisória será gerada automaticamente e um e-mail de boas-vindas com as credenciais será enviado ao usuário.
               </p>
             </div>
           </div>
@@ -574,7 +472,7 @@ export default function AdminUsers() {
               className="w-full sm:w-auto text-red-600 border-red-200 hover:bg-red-50"
               onClick={handleBlockUser}
             >
-              {selectedUser?.status === "blocked" ? (
+              {selectedUser?.blocked ? (
                 <>
                   <Unlock size={16} className="mr-1" />
                   Desbloquear Conta
@@ -614,10 +512,10 @@ export default function AdminUsers() {
                 </p>
                 <div className="flex gap-2 items-center flex-wrap">
                   <Badge variant="neutral">
-                    {getProfileLabel(selectedUser.profile)}
+                    {selectedUser.role === "admin" ? "Administrador" : selectedUser.role === "store_owner" ? "Lojista" : "Cliente"}
                   </Badge>
                   <StatusBadge
-                    status={getStatusBadgeType(selectedUser.status)}
+                    status={selectedUser.blocked ? "cancelled" : "active"}
                   />
                 </div>
               </div>
@@ -632,7 +530,7 @@ export default function AdminUsers() {
                 <div className="flex items-center gap-2">
                   <Calendar size={16} className="text-zinc-400" />
                   <p className="text-sm font-medium text-zinc-900">
-                    {new Date(selectedUser.createdAt).toLocaleDateString(
+                    {new Date(selectedUser.created_at).toLocaleDateString(
                       "pt-BR",
                     )}
                   </p>

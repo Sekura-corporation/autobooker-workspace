@@ -28,6 +28,7 @@ export interface PasswordRecoveryConfirmPayload {
   email: string;
   code: string;
   password: string;
+  password_confirmation: string;
 }
 
 export async function login(payload: LoginPayload): Promise<AuthSession> {
@@ -57,12 +58,48 @@ export async function logout(): Promise<void> {
   }
 }
 
+export async function uploadAvatar(file: File): Promise<User> {
+  const formData = new FormData();
+  formData.append("avatar", file);
+
+  const { data } = await api.post<{ user: User; message: string }>(
+    "/auth/avatar",
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
+
+  return data.user;
+}
+
+export async function removeAvatar(): Promise<User> {
+  const { data } = await api.delete<{ user: User; message: string }>(
+    "/auth/avatar",
+  );
+
+  return data.user;
+}
+
 export async function requestPasswordRecovery(
   payload: PasswordRecoveryRequestPayload,
 ): Promise<{ message: string }> {
   const { data } = await api.post<{ message: string }>(
-    "/auth/recover",
+    "/auth/forgot-password",
     payload,
+  );
+  return data;
+}
+
+export async function verifyPasswordRecoveryCode(
+  email: string,
+  code: string,
+): Promise<{ message: string }> {
+  const { data } = await api.post<{ message: string }>(
+    "/auth/verify-code",
+    { email, code },
   );
   return data;
 }
@@ -71,19 +108,42 @@ export async function confirmPasswordRecovery(
   payload: PasswordRecoveryConfirmPayload,
 ): Promise<{ message: string }> {
   const { data } = await api.post<{ message: string }>(
-    "/auth/recover/confirm",
+    "/auth/reset-password",
     payload,
   );
   return data;
 }
 
-const authService = {
+export async function updateProfile(payload: {
+  name: string;
+  email: string;
+  phone?: string;
+}): Promise<User> {
+  const { data } = await api.put<User>("/auth/profile", payload);
+  return data;
+}
+
+export async function changePassword(payload: {
+  current_password: string;
+  new_password: string;
+  new_password_confirmation: string;
+}): Promise<{ message: string }> {
+  const { data } = await api.put<{ message: string }>("/auth/password", payload);
+  return data;
+}
+
+const authService = { 
   login,
   register,
   me,
   logout,
+  uploadAvatar,
+  removeAvatar,
   requestPasswordRecovery,
+  verifyPasswordRecoveryCode,
   confirmPasswordRecovery,
+  updateProfile,
+  changePassword,
 };
 
 export default authService; // Auth service
