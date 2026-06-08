@@ -148,6 +148,19 @@ export async function listAdminUsers(params?: {
   return data.data;
 }
 
+export async function createAdminUser(payload: {
+  name: string;
+  email: string;
+  phone?: string;
+  role: "admin" | "store_owner" | "client";
+}): Promise<AdminUser> {
+  const { data } = await api.post<{ success: boolean; data: AdminUser }>(
+    "/admin/users",
+    payload
+  );
+  return data.data;
+}
+
 export async function toggleBlockUser(
   userId: number
 ): Promise<{ blocked: boolean; message: string }> {
@@ -285,6 +298,10 @@ export async function updateAdminSettings(
   return data.data;
 }
 
+export async function forceGlobalLogout(): Promise<void> {
+  await api.post("/admin/settings/force-logout");
+}
+
 const adminService = {
   getAdminDashboard,
   listAdminStores,
@@ -292,6 +309,7 @@ const adminService = {
   approveStore,
   rejectStore,
   listAdminUsers,
+  createAdminUser,
   toggleBlockUser,
   listAdminPlans,
   createAdminPlan,
@@ -303,6 +321,7 @@ const adminService = {
   deleteAdminPartnership,
   getAdminSettings,
   updateAdminSettings,
+  forceGlobalLogout,
 };
 
 export default adminService;

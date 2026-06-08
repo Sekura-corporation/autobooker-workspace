@@ -83,45 +83,12 @@ const OWNER_INITIAL: OwnerForm = {
   acceptTerms: false,
 };
 
-const maskCPF = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-  return digits
-    .slice(0, 11)
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-};
-
-const maskPhone = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length <= 10) {
-    return digits
-      .slice(0, 10)
-      .replace(/(\d{2})(\d)/, "($1) $2")
-      .replace(/(\d{4})(\d{1,4})$/, "$1-$2");
-  }
-  return digits
-    .slice(0, 11)
-    .replace(/(\d{2})(\d)/, "($1) $2")
-    .replace(/(\d{5})(\d{1,4})$/, "$1-$2");
-};
-
-const maskCNPJ = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-  return digits
-    .slice(0, 14)
-    .replace(/(\d{2})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d)/, "$1/$2")
-    .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
-};
-
-const maskCEP = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-  return digits
-    .slice(0, 8)
-    .replace(/(\d{5})(\d{1,3})$/, "$1-$2");
-};
+import {
+  maskCPF,
+  maskPhone,
+  maskCNPJ,
+  maskCEP,
+} from "@/utils/masks";
 
 export default function Register() {
   const navigate = useNavigate();

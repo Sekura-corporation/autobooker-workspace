@@ -11,6 +11,9 @@ import RecoverCode from "@/pages/auth/RecoverCode";
 import NewPassword from "@/pages/auth/NewPassword";
 import SuccessState from "@/pages/auth/SuccessState";
 
+// Páginas Globais
+import MaintenancePage from "@/pages/MaintenancePage";
+
 // M�dulos
 import AdminRoutes from "./AdminRoutes";
 import StoreRoutes from "./StoreRoutes";
@@ -21,6 +24,9 @@ export default function AppRoutes() {
     <Routes>
       {/* -- Landing Page -- */}
       <Route path="/" element={<Landing />} />
+
+      {/* -- Global Pages -- */}
+      <Route path="/manutencao" element={<MaintenancePage />} />
 
       {/* -- Auth -- */}
       <Route path="/login" element={<Login />} />

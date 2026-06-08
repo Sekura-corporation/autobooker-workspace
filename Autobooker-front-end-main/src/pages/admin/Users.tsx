@@ -18,7 +18,7 @@ import Modal from "@/components/ui/Modal";
 import Card from "@/components/ui/Card";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
-import { listAdminUsers, toggleBlockUser, type AdminUser } from "@/services/admin.service";
+import { listAdminUsers, toggleBlockUser, createAdminUser, type AdminUser } from "@/services/admin.service";
 
 interface User {
   id: number;
@@ -99,17 +99,14 @@ const ACTIVITY_LOGS: ActivityLog[] = [
 
 const PROFILE_OPTIONS = [
   { value: "admin", label: "Administrador Global" },
-  { value: "manager", label: "Gerente" },
-  { value: "operator", label: "Operador" },
-  { value: "analyst", label: "Analista" },
+  { value: "store_owner", label: "Proprietário de Loja" },
 ];
 
 type UserFormData = {
   name: string;
   email: string;
   phone: string;
-  store: string;
-  profile: User["profile"];
+  role: "admin" | "store_owner" | "client";
 };
 
 export default function AdminUsers() {
@@ -126,8 +123,7 @@ export default function AdminUsers() {
     name: "",
     email: "",
     phone: "",
-    store: "",
-    profile: "operator",
+    role: "admin",
   });
 
   const fetchUsers = async () => {
@@ -156,30 +152,21 @@ export default function AdminUsers() {
     return matchesSearch && matchesProfile;
   });
 
-  const handleRegisterSubmit = () => {
+  const handleRegisterSubmit = async () => {
     if (!formData.name || !formData.email) {
       toast.error("Preencha todos os campos obrigatórios!");
       return;
     }
 
-    const newUser: User = {
-      id: Math.max(...users.map((u) => u.id), 0) + 1,
-      name: formData.name,
-      email: formData.email,
-      profile: formData.profile,
-      status: "pending",
-      createdAt: new Date().toISOString().split("T")[0],
-    };
-
-    setUsers((prev) => [...prev, newUser]);
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      store: "",
-      profile: "operator",
-    });
-    setIsRegisterModalOpen(false);
+    try {
+      await createAdminUser(formData);
+      toast.success("Usuário criado e e-mail de acesso enviado!");
+      setIsRegisterModalOpen(false);
+      setFormData({ name: "", email: "", phone: "", role: "admin" });
+      fetchUsers(); // Recarrega a tabela real
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Erro ao criar usuário");
+    }
   };
 
   const handleDetail = (user: AdminUser) => {
@@ -413,11 +400,11 @@ export default function AdminUsers() {
               </label>
               <select
                 className="w-full px-4 py-3 rounded-lg border-2 border-zinc-200 transition-all font-medium text-sm focus:outline-none focus:border-[#820000]"
-                value={formData.profile}
+                value={formData.role}
                 onChange={(e) =>
                   setFormData((prev) => ({
                     ...prev,
-                    profile: e.target.value as User["profile"],
+                    role: e.target.value as UserFormData["role"],
                   }))
                 }
               >
@@ -431,14 +418,10 @@ export default function AdminUsers() {
               {/* Descrição do Perfil */}
               <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-xs font-semibold text-blue-900 mb-1">
-                  {formData.profile === "admin" &&
-                    "Administrador Global - Acesso total ao sistema"}
-                  {formData.profile === "manager" &&
-                    "Gerente - Gerencia lojas e operadores"}
-                  {formData.profile === "operator" &&
-                    "Operador - Gerencia agendamentos e clientes"}
-                  {formData.profile === "analyst" &&
-                    "Analista - Visualiza relatórios e dados"}
+                  {formData.role === "admin" &&
+                    "Administrador Global - Acesso total à plataforma Autobooker"}
+                  {formData.role === "store_owner" &&
+                    "Proprietário de Loja - Lojista que gerenciará uma estética"}
                 </p>
               </div>
             </div>
@@ -449,7 +432,7 @@ export default function AdminUsers() {
             <h4 className="text-sm font-bold text-zinc-900 mb-3 pb-2 border-b border-zinc-200">
               Informações de Contato
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <Input
                 label="Telefone / WhatsApp"
                 placeholder="(11) 98765-4321"
@@ -458,116 +441,6 @@ export default function AdminUsers() {
                   setFormData((prev) => ({ ...prev, phone: e.target.value }))
                 }
               />
-
-              {formData.profile !== "admin" && (
-                <div>
-                  <label className="block text-sm font-semibold text-zinc-900 mb-2">
-                    Loja Associada
-                  </label>
-                  <select
-                    className="w-full px-4 py-3 rounded-lg border-2 border-zinc-200 transition-all font-medium text-sm focus:outline-none focus:border-[#820000]"
-                    value={formData.store || ""}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        store: e.target.value,
-                      }))
-                    }
-                  >
-                    <option value="">Selecionar loja...</option>
-                    <option value="Douglas Details">Douglas Details</option>
-                    <option value="Auto Estética VIP">Auto Estética VIP</option>
-                    <option value="Lava Jato Central">Lava Jato Central</option>
-                  </select>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Seção 4: Permissões */}
-          {formData.profile !== "admin" && (
-            <div>
-              <h4 className="text-sm font-bold text-zinc-900 mb-3 pb-2 border-b border-zinc-200">
-                Permissões
-              </h4>
-              <div className="space-y-2">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    defaultChecked
-                    className="w-4 h-4 rounded border-2 border-zinc-300 cursor-pointer"
-                  />
-                  <span className="text-sm font-medium text-zinc-900">
-                    Gerenciar Agendamentos
-                  </span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    defaultChecked
-                    className="w-4 h-4 rounded border-2 border-zinc-300 cursor-pointer"
-                  />
-                  <span className="text-sm font-medium text-zinc-900">
-                    Visualizar Clientes
-                  </span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 rounded border-2 border-zinc-300 cursor-pointer"
-                  />
-                  <span className="text-sm font-medium text-zinc-900">
-                    Exportar Relatórios
-                  </span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 rounded border-2 border-zinc-300 cursor-pointer"
-                  />
-                  <span className="text-sm font-medium text-zinc-900">
-                    Gerenciar Configurações
-                  </span>
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* Seção 5: Configurações Iniciais */}
-          <div>
-            <h4 className="text-sm font-bold text-zinc-900 mb-3 pb-2 border-b border-zinc-200">
-              Configurações Iniciais
-            </h4>
-            <div className="space-y-3">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  defaultChecked
-                  className="w-4 h-4 rounded border-2 border-zinc-300 cursor-pointer"
-                />
-                <span className="text-sm font-medium text-zinc-900">
-                  Enviar e-mail de confirmação
-                </span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded border-2 border-zinc-300 cursor-pointer"
-                />
-                <span className="text-sm font-medium text-zinc-900">
-                  Exigir mudança de senha no primeiro acesso
-                </span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  defaultChecked
-                  className="w-4 h-4 rounded border-2 border-zinc-300 cursor-pointer"
-                />
-                <span className="text-sm font-medium text-zinc-900">
-                  Autenticação de dois fatores (2FA)
-                </span>
-              </label>
             </div>
           </div>
 
@@ -579,9 +452,7 @@ export default function AdminUsers() {
                 Nota Importante
               </p>
               <p className="text-xs text-blue-900">
-                Um e-mail de confirmação será enviado ao novo usuário com
-                instruções para ativar sua conta. Todas as ações serão
-                registradas para fins de auditoria.
+                Uma senha provisória será gerada automaticamente e um e-mail de boas-vindas com as credenciais será enviado ao usuário.
               </p>
             </div>
           </div>

@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 import { useToast } from "@/hooks/useToast";
+import { unmaskCurrency } from "@/utils/masks";
 
 export type ServiceFormPayload = {
   name: string;
@@ -77,7 +79,7 @@ export default function NewServiceModal({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const priceNum = parseFloat(price.replace(",", "."));
+    const priceNum = unmaskCurrency(price);
     const durationNum = parseInt(durationMinutes, 10);
 
     if (!serviceName.trim()) {
@@ -119,19 +121,13 @@ export default function NewServiceModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-bold text-zinc-900 mb-2">
-              Nome do Serviço *
-            </label>
-            <input
-              type="text"
-              value={serviceName}
-              onChange={(e) => setServiceName(e.target.value)}
-              placeholder="Ex: Higienização de Ar Condicionado"
-              className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
-              required
-            />
-          </div>
+          <Input
+            label="Nome do Serviço *"
+            placeholder="Ex: Higienização de Ar Condicionado"
+            value={serviceName}
+            onChange={(e) => setServiceName(e.target.value)}
+            required
+          />
 
           <div>
             <label className="block text-sm font-bold text-zinc-900 mb-2">
@@ -147,48 +143,32 @@ export default function NewServiceModal({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-bold text-zinc-900 mb-2">
-                Preço (R$) *
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="150.00"
-                className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-zinc-900 mb-2">
-                Duração (minutos) *
-              </label>
-              <input
-                type="number"
-                min={1}
-                value={durationMinutes}
-                onChange={(e) => setDurationMinutes(e.target.value)}
-                placeholder="45"
-                className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-zinc-900 mb-2">
-              Categoria
-            </label>
-            <input
-              type="text"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              placeholder="Ex: Estética, Lavagem..."
-              className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
+            <Input
+              label="Preço (R$) *"
+              placeholder="R$ 150,00"
+              mask="currency"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              required
+            />
+            <Input
+              label="Duração (minutos) *"
+              type="number"
+              min={1}
+              mask="integer"
+              placeholder="45"
+              value={durationMinutes}
+              onChange={(e) => setDurationMinutes(e.target.value)}
+              required
             />
           </div>
+
+          <Input
+            label="Categoria"
+            placeholder="Ex: Estética, Lavagem..."
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          />
 
           <label className="flex items-center gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-800">
             <input

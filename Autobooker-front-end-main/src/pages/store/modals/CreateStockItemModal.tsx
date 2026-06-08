@@ -3,6 +3,8 @@ import toast from "react-hot-toast";
 import api from "@/services/api";
 import { X } from "lucide-react";
 import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import { unmaskCurrency } from "@/utils/masks";
 
 interface CreateStockItemModalProps {
   isOpen: boolean;
@@ -52,7 +54,7 @@ export default function CreateStockItemModal({
         type: category,
         quantity: Number(currentStock),
         min_quantity: Number(minimumStock),
-        sale_price: category === "product" && salePrice ? Number(salePrice) : null,
+        sale_price: category === "product" && salePrice ? unmaskCurrency(salePrice) : null,
       });
 
       toast.success("Item cadastrado com sucesso!");
@@ -149,50 +151,37 @@ export default function CreateStockItemModal({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-bold text-zinc-900 mb-2">
-                Estoque Atual
-              </label>
+            <Input
+              label="Estoque Atual"
+              type="number"
+              min={0}
+              mask="integer"
+              value={currentStock}
+              onChange={(event) => setCurrentStock(event.target.value)}
+            />
 
-              <input
-                type="number"
-                value={currentStock}
-                min={0}
-                onChange={(event) => setCurrentStock(event.target.value)}
-                className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
-              />
-            </div>
+            <Input
+              label="Estoque Mínimo"
+              type="number"
+              min={0}
+              mask="integer"
+              value={minimumStock}
+              onChange={(event) => setMinimumStock(event.target.value)}
+            />
 
-            <div>
-              <label className="block text-sm font-bold text-zinc-900 mb-2">
-                Estoque Mínimo
-              </label>
-
-              <input
-                type="number"
-                value={minimumStock}
-                min={0}
-                onChange={(event) => setMinimumStock(event.target.value)}
-                className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-zinc-900 mb-2">
-                Preço de Venda
-              </label>
-
-              <input
-                type="number"
+            {category === "product" && (
+              <Input
+                label="Preço de Venda (R$)"
+                placeholder="R$ 15,00"
+                mask="currency"
                 value={salePrice}
                 min={0}
                 step="0.01"
                 disabled={category !== "product"}
                 onChange={(event) => setSalePrice(event.target.value)}
-                placeholder={category === "product" ? "Ex: 12.90" : "Apenas venda"}
                 className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000] disabled:bg-zinc-100 disabled:text-zinc-400"
               />
-            </div>
+            )}
           </div>
 
           <div>

@@ -181,6 +181,7 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
 
     // Users management
     Route::get('/users', [AdminUserController::class, 'index']);
+    Route::post('/users', [AdminUserController::class, 'store']);
     Route::get('/users/{user}', [AdminUserController::class, 'show']);
     Route::post('/users/{user}/toggle-block', [AdminUserController::class, 'toggleBlock']);
 
@@ -193,6 +194,7 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->group(functi
     // System Settings
     Route::get('/settings', [AdminSettingController::class, 'index']);
     Route::put('/settings', [AdminSettingController::class, 'update']);
+    Route::post('/settings/force-logout', [AdminSettingController::class, 'forceLogout']);
     Route::get('/settings/{key}', [AdminSettingController::class, 'show']);
 });
 

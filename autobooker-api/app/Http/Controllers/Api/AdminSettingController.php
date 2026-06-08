@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Setting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class AdminSettingController extends Controller
 {
@@ -56,6 +57,9 @@ class AdminSettingController extends Controller
             }
         }
 
+        // Clear the maintenance mode cache just in case it was updated
+        Cache::forget('maintenance_mode');
+
         // Return the full updated settings list
         $settings = Setting::all()->pluck('value', 'key');
 
@@ -86,6 +90,23 @@ class AdminSettingController extends Controller
                 'key'   => $setting->key,
                 'value' => $setting->value,
             ],
+        ]);
+    }
+
+    /**
+     * Force logout of all users except the current admin.
+     */
+    public function forceLogout(Request $request): JsonResponse
+    {
+        $currentUser = $request->user();
+
+        // Revoke all tokens in the system EXCEPT the tokens belonging to the current user
+        \Laravel\Sanctum\PersonalAccessToken::where('tokenable_id', '!=', $currentUser->id)
+            ->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Logoff global forçado. Todos os outros usuários foram desconectados.',
         ]);
     }
 }

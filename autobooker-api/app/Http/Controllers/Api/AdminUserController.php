@@ -6,6 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+use App\Mail\WelcomeUserMail;
 
 class AdminUserController extends Controller
 {
@@ -47,6 +51,49 @@ class AdminUserController extends Controller
             'success' => true,
             'data'    => $users,
         ]);
+    }
+
+    /**
+     * Store a newly created user and send welcome email.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name'  => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'role'  => ['required', 'string', 'in:admin,store_owner,client'],
+        ]);
+
+        $generatedPassword = Str::random(10);
+
+        $user = User::create([
+            'name'     => $validated['name'],
+            'email'    => $validated['email'],
+            'phone'    => $validated['phone'] ?? null,
+            'role'     => $validated['role'],
+            'password' => Hash::make($generatedPassword),
+            'status'   => true, // Active by default
+        ]);
+
+        try {
+            Mail::to($user->email)->send(new WelcomeUserMail($user, $generatedPassword));
+        } catch (\Exception $e) {
+            // Se o e-mail falhar, logar o erro mas continuar o fluxo (o usuário foi criado)
+            \Illuminate\Support\Facades\Log::error('Erro ao enviar e-mail de boas-vindas: ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Usuário cadastrado com sucesso! As credenciais foram enviadas por e-mail.',
+            'data'    => [
+                'id'         => $user->id,
+                'name'       => $user->name,
+                'email'      => $user->email,
+                'role'       => $user->role,
+                'created_at' => $user->created_at->format('Y-m-d'),
+            ]
+        ], 201);
     }
 
     /**

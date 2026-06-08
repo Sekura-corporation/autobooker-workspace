@@ -13,7 +13,7 @@ import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Modal from "@/components/ui/Modal";
 import { useToast } from "@/hooks/useToast";
-import { getAdminSettings, updateAdminSettings } from "@/services/admin.service";
+import { getAdminSettings, updateAdminSettings, forceGlobalLogout } from "@/services/admin.service";
 import {
   isValidEmail,
   isValidNumber,
@@ -143,8 +143,10 @@ export default function AdminSettings() {
   const handleForceLogout = async () => {
     setIsLoggingOut(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      toast.success("Logout global solicitado com sucesso.");
+      await forceGlobalLogout();
+      toast.success("Logoff global executado. Todos os outros usuários foram desconectados.");
+    } catch (err) {
+      toast.error("Erro ao forçar logoff global.");
     } finally {
       setIsLoggingOut(false);
       setIsLogoutModalOpen(false);
