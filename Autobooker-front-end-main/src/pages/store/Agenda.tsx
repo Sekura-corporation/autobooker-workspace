@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/shared/PageHeader";
-import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import NewAppointmentModal from "./modals/NewAppointmentModal";
@@ -195,87 +194,95 @@ export default function StoreAgenda() {
         onCreated={loadAppointments}
       />
 
-      <Card className="rounded-md border-zinc-200 !p-5 md:!p-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(event) => setSelectedDate(event.target.value)}
-            className="w-full border border-zinc-200 rounded-md px-4 py-3 text-sm text-zinc-700 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000] bg-white"
-          />
+      <div className="bg-white rounded-2xl border border-zinc-200 shadow-lg shadow-zinc-200/40 overflow-hidden transition-all duration-300">
+        <div className="p-5 md:p-6 border-b border-zinc-100 flex flex-col gap-4">
+          <h2 className="text-xl font-bold text-zinc-900 tracking-tight mb-2">Filtros de Agendamento</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:max-w-xl">
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(event) => setSelectedDate(event.target.value)}
+              className="w-full border border-zinc-300 rounded-lg px-4 py-2.5 text-sm font-medium text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000] bg-zinc-50"
+            />
 
-          <select
-            value={statusFilter}
-            onChange={(event) =>
-              setStatusFilter(
-                event.target.value as (typeof STATUS_OPTIONS)[number]["value"],
-              )
-            }
-            className="w-full border border-zinc-200 rounded-md px-4 py-3 text-sm text-zinc-700 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000] bg-white"
-          >
-            {STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            <select
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(
+                  event.target.value as (typeof STATUS_OPTIONS)[number]["value"],
+                )
+              }
+              className="w-full border border-zinc-300 rounded-lg px-4 py-2.5 text-sm font-medium text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000] bg-zinc-50"
+            >
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {loading && (
-          <p className="text-sm text-zinc-500">Carregando agendamentos...</p>
-        )}
+        <div className="p-5 md:p-6 bg-zinc-50/50">
+          {loading && (
+            <div className="py-12 text-center text-zinc-500 text-sm font-medium">Carregando agendamentos...</div>
+          )}
 
-        {!loading && filteredAppointments.length === 0 && (
-          <p className="text-sm text-zinc-500">
-            Nenhum agendamento encontrado.
-          </p>
-        )}
+          {!loading && filteredAppointments.length === 0 && (
+            <div className="py-12 text-center text-zinc-500 text-sm font-medium">
+              Nenhum agendamento encontrado para estes filtros.
+            </div>
+          )}
 
-        <div className="space-y-3">
+          <div className="space-y-4">
           {filteredAppointments.map((appointment) => {
             const statusInfo =
               STATUS_BADGE_MAP[appointment.status] ??
               STATUS_BADGE_MAP.pending;
 
             return (
-              <Card
+              <div
                 key={appointment.id}
-                className={`border-l-4 ${statusInfo.borderColor} !p-4`}
+                className={`bg-white rounded-xl border border-zinc-200 shadow-sm hover:shadow-md transition-all duration-200 border-l-[6px] ${statusInfo.borderColor} p-5`}
               >
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div className="flex items-start gap-4">
-                    <div className="min-w-[72px]">
-                      <p className="text-2xl leading-none font-black text-zinc-900">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+                  <div className="flex items-start gap-5">
+                    <div className="min-w-[84px] bg-red-50/80 p-3.5 rounded-xl border border-red-100/80 text-center flex flex-col justify-center">
+                      <p className="text-2xl leading-none font-black text-[#820000]">
                         {appointment.time}
                       </p>
-                      <p className="text-sm text-zinc-500 mt-1">
+                      <p className="text-[10px] font-bold text-red-600 uppercase tracking-widest mt-1.5">
                         {appointment.duration}
                       </p>
                     </div>
 
-                    <div className="pt-0.5">
-                      <p className="text-2xl md:text-xl leading-tight font-black text-zinc-900">
+                    <div className="pt-1">
+                      <p className="text-xl leading-tight font-bold text-zinc-900 mb-1">
                         {appointment.vehicle}
-                        {appointment.plate ? ` (${appointment.plate})` : ""}
+                        {appointment.plate && (
+                          <span className="ml-2 bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded text-[10px] font-bold tracking-widest border border-zinc-200 uppercase">
+                            {appointment.plate}
+                          </span>
+                        )}
                       </p>
-                      <p className="text-sm text-zinc-600">
-                        {appointment.customer} • {appointment.service}
+                      <p className="text-sm font-medium text-zinc-500">
+                        <span className="text-zinc-800 font-semibold">{appointment.customer}</span> • {appointment.service}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-start md:items-end gap-2">
+                  <div className="flex flex-col items-start md:items-end gap-3 mt-4 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-zinc-100">
                     <Badge variant={statusInfo.badgeVariant}>
                       {statusInfo.label}
                     </Badge>
 
                     <div className="flex items-center gap-2">
                       <Button
-                        variant="primary"
+                        variant="outline"
                         onClick={() =>
                           navigate(`/loja/agenda/${appointment.id}`)
                         }
-                        className="!py-2.5 !px-5 text-sm !rounded-md"
+                        className="!py-1.5 !px-4 text-xs font-semibold bg-white hover:bg-zinc-100 transition-colors shadow-sm !rounded-md"
                       >
                         Ver Detalhes
                       </Button>
@@ -283,14 +290,18 @@ export default function StoreAgenda() {
                       {appointment.status !== "completed" &&
                         appointment.status !== "cancelled" && (
                           <Button
-                            variant={statusInfo.actionVariant}
+                            variant={statusInfo.actionVariant === "primary" ? "primary" : "outline"}
                             onClick={() =>
                               handleActionClick(
                                 appointment.id,
                                 appointment.status,
                               )
                             }
-                            className="!py-2.5 !px-5 text-sm !rounded-md"
+                            className={
+                              statusInfo.actionVariant === "primary"
+                                ? "!py-1.5 !px-4 text-xs font-semibold shadow-sm !rounded-md"
+                                : "!py-1.5 !px-4 text-xs font-semibold bg-white hover:bg-zinc-100 transition-colors shadow-sm !rounded-md"
+                            }
                           >
                             {statusInfo.action}
                           </Button>
@@ -298,11 +309,12 @@ export default function StoreAgenda() {
                     </div>
                   </div>
                 </div>
-              </Card>
+              </div>
             );
           })}
         </div>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

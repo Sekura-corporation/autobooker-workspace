@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import api from "@/services/api";
-import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import PageHeader from "@/components/shared/PageHeader";
 import ReceiptModal from "./modals/ReceiptModal";
@@ -125,130 +124,150 @@ export default function StoreCustomerProfile() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="space-y-4">
-          <Card className="rounded-md border-zinc-200 !p-4">
-            <h2 className="text-2xl font-bold text-zinc-900 mb-3">
-              Perfil e Veículos
-            </h2>
-
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-12 h-12 rounded-full bg-[#820000] text-white font-bold text-lg flex items-center justify-center">
-                {getInitials(profile.name)}
-              </div>
-
-              <div>
-                <p className="text-zinc-900 font-bold mb-0">{profile.name}</p>
-                <p className="text-zinc-500 text-sm mb-0">
-                  {profile.phone || "Sem telefone"} •{" "}
-                  {profile.email || "Sem e-mail"}
-                </p>
-              </div>
+          <div className="bg-white rounded-2xl border border-zinc-200 shadow-lg shadow-zinc-200/40 overflow-hidden transition-all duration-300">
+            <div className="p-5 md:p-6 border-b border-zinc-100">
+              <h2 className="text-xl font-bold text-zinc-900 tracking-tight mb-0">
+                Perfil e Veículos
+              </h2>
             </div>
+            <div className="p-5 md:p-6">
+              <div className="flex items-center gap-4 mb-5">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#820000] to-[#590000] text-white font-bold text-xl flex items-center justify-center shadow-md border-2 border-white ring-2 ring-zinc-100">
+                  {getInitials(profile.name)}
+                </div>
 
-            <div className="space-y-1">
-              {profile.vehicles.length > 0 ? (
-                profile.vehicles.map((vehicle) => (
-                  <p
-                    key={vehicle.id}
-                    className="text-zinc-800 font-semibold text-sm mb-0"
-                  >
-                    {vehicle.brand || "Veículo"} {vehicle.model || ""}
-                    {vehicle.plate ? ` (${vehicle.plate})` : ""}
+                <div>
+                  <p className="text-zinc-900 font-bold text-lg mb-0">{profile.name}</p>
+                  <p className="text-zinc-500 font-medium text-sm mb-0">
+                    {profile.phone || "Sem telefone"} • {profile.email || "Sem e-mail"}
                   </p>
-                ))
-              ) : (
-                <p className="text-zinc-500 text-sm mb-0">
-                  Nenhum veículo encontrado.
-                </p>
-              )}
+                </div>
+              </div>
+
+              <div className="space-y-3 bg-zinc-50 p-4 rounded-xl border border-zinc-100">
+                <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Veículos Registrados</h3>
+                {profile.vehicles.length > 0 ? (
+                  profile.vehicles.map((vehicle) => (
+                    <div
+                      key={vehicle.id}
+                      className="flex items-center justify-between bg-white p-3 rounded-lg border border-zinc-200 shadow-sm"
+                    >
+                      <span className="text-zinc-800 font-semibold text-sm">
+                        {vehicle.brand || "Veículo"} {vehicle.model || ""}
+                      </span>
+                      {vehicle.plate && (
+                        <span className="bg-zinc-100 text-zinc-600 px-2 py-1 rounded text-xs font-bold tracking-widest border border-zinc-200">
+                          {vehicle.plate}
+                        </span>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-zinc-500 text-sm mb-0 italic">
+                    Nenhum veículo encontrado.
+                  </p>
+                )}
+              </div>
             </div>
-          </Card>
+          </div>
 
-          <Card className="rounded-md !p-4 bg-[#820000] text-white border-[#820000]">
-            <h2 className="text-2xl font-bold mb-2 text-white">
-              Resumo de Fidelidade
-            </h2>
+          <div className="rounded-2xl p-6 bg-gradient-to-br from-[#820000] to-[#4A0000] text-white shadow-lg shadow-[#820000]/20 flex flex-col justify-between">
+            <div>
+              <h2 className="text-xl font-bold mb-6 text-white/90 tracking-tight flex items-center gap-2">
+                Resumo de Fidelidade
+              </h2>
 
-            <p className="text-red-100 font-semibold mb-1">Saldo Atual:</p>
-            <p className="text-4xl font-black mb-3 text-white">
-              {profile.loyalty_points} pts
-            </p>
+              <div className="mb-8">
+                <p className="text-white font-medium text-sm mb-1 uppercase tracking-wider">Saldo Atual</p>
+                <p className="text-5xl font-black mb-0 text-white tracking-tight drop-shadow-md">
+                  {profile.loyalty_points} <span className="text-xl font-bold text-red-200/70">pts</span>
+                </p>
+              </div>
+            </div>
 
-            <p className="text-red-100 font-semibold mb-1">
-              Ticket Médio: {formatCurrency(profile.avg_ticket)}
-            </p>
-
-            <p className="text-red-100 font-semibold mb-1">
-              Total Gasto: {formatCurrency(profile.total_spent)}
-            </p>
-
-            <p className="text-red-100 font-semibold mb-0">
-              Última Visita: {formatDate(profile.last_visit)}
-            </p>
-          </Card>
+            <div className="grid grid-cols-2 gap-4 bg-black/10 rounded-xl p-4 border border-white/10">
+              <div>
+                <p className="text-white font-medium text-xs mb-1 uppercase tracking-wider">
+                  Ticket Médio
+                </p>
+                <p className="text-white font-bold text-lg mb-0">{formatCurrency(profile.avg_ticket)}</p>
+              </div>
+              
+              <div>
+                <p className="text-white font-medium text-xs mb-1 uppercase tracking-wider">
+                  Total Gasto
+                </p>
+                <p className="text-white font-bold text-lg mb-0">{formatCurrency(profile.total_spent)}</p>
+              </div>
+              
+              <div className="col-span-2 mt-2 pt-3 border-t border-white/10 flex items-center justify-between">
+                <p className="text-white font-medium text-xs mb-0 uppercase tracking-wider">
+                  Última Visita
+                </p>
+                <p className="text-white font-semibold text-sm mb-0 bg-black/20 px-3 py-1 rounded-full">
+                  {formatDate(profile.last_visit)}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <Card className="rounded-md border-zinc-200 !p-4">
-          <h2 className="text-2xl font-bold text-zinc-900 mb-3">
-            Histórico Completo de Serviços
-          </h2>
+        <div className="bg-white rounded-2xl border border-zinc-200 shadow-lg shadow-zinc-200/40 overflow-hidden transition-all duration-300">
+          <div className="p-5 md:p-6 border-b border-zinc-100">
+            <h2 className="text-xl font-bold text-zinc-900 tracking-tight mb-0">
+              Histórico Completo de Serviços
+            </h2>
+          </div>
 
           {profile.history.length === 0 ? (
-            <p className="text-sm text-zinc-500">
-              Nenhum histórico encontrado.
-            </p>
+            <div className="p-8 text-center">
+              <p className="text-sm font-medium text-zinc-500 mb-0">
+                Nenhum histórico encontrado para este cliente.
+              </p>
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-300">
-                    <th className="text-left py-2 pr-2 font-bold text-zinc-900">
-                      Data
-                    </th>
-                    <th className="text-left py-2 pr-2 font-bold text-zinc-900">
-                      Serviço
-                    </th>
-                    <th className="text-left py-2 pr-2 font-bold text-zinc-900">
-                      Veículo
-                    </th>
-                    <th className="text-left py-2 pr-2 font-bold text-zinc-900">
-                      Valor
-                    </th>
-                    <th className="text-right py-2 pl-2 font-bold text-zinc-900">
-                      Ação
-                    </th>
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-500 uppercase tracking-wider text-[11px] font-bold">
+                  <tr>
+                    <th className="py-4 px-6 whitespace-nowrap">Data</th>
+                    <th className="py-4 px-6 whitespace-nowrap">Serviço</th>
+                    <th className="py-4 px-6 whitespace-nowrap">Veículo</th>
+                    <th className="py-4 px-6 whitespace-nowrap">Valor</th>
+                    <th className="py-4 px-6 whitespace-nowrap text-right">Ação</th>
                   </tr>
                 </thead>
 
-                <tbody>
+                <tbody className="divide-y divide-zinc-100">
                   {profile.history.map((entry) => (
-                    <tr key={entry.id} className="border-b border-zinc-200">
-                      <td className="py-2 pr-2 text-zinc-800">
+                    <tr key={entry.id} className="hover:bg-zinc-50/50 transition-colors">
+                      <td className="py-4 px-6 text-zinc-800 font-medium whitespace-nowrap">
                         {formatDate(entry.date)}
                       </td>
 
-                      <td className="py-2 pr-2 text-zinc-800">
+                      <td className="py-4 px-6 text-zinc-800 font-semibold">
                         {entry.service}
                       </td>
 
-                      <td className="py-2 pr-2 text-zinc-800">
+                      <td className="py-4 px-6 text-zinc-600">
                         {entry.vehicle || "Veículo"}
                         {entry.plate ? ` (${entry.plate})` : ""}
                       </td>
 
-                      <td className="py-2 pr-2 text-zinc-800">
+                      <td className="py-4 px-6 font-bold text-[#0B0B1A] whitespace-nowrap">
                         {formatCurrency(entry.value)}
                       </td>
 
-                      <td className="py-1.5 pl-2 text-right">
+                      <td className="py-4 px-6 text-right whitespace-nowrap">
                         <Button
                           variant="outline"
-                          className="!rounded-md !py-1.5 !px-4 text-sm"
+                          className="!rounded-md !py-1.5 !px-4 text-xs font-semibold bg-white hover:bg-zinc-100 transition-colors shadow-sm"
                           onClick={() => {
                             setSelectedReceipt(entry);
                             setIsReceiptModalOpen(true);
                           }}
                         >
-                          Recibo
+                          Ver Recibo
                         </Button>
                       </td>
                     </tr>
@@ -257,7 +276,7 @@ export default function StoreCustomerProfile() {
               </table>
             </div>
           )}
-        </Card>
+        </div>
       </div>
 
       <ReceiptModal
