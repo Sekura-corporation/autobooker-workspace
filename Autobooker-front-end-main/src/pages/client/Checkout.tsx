@@ -60,6 +60,28 @@ export default function Checkout() {
     spentValue: 1,
     pointsValue: 1,
   });
+  const [storeOpeningHours, setStoreOpeningHours] = useState<any>(null);
+
+  useEffect(() => {
+    async function fetchStoreDetails() {
+      if (!storeInfo?.id) {
+        return;
+      }
+      try {
+        const { data } = await api.get(`/stores/${storeInfo.id}`);
+        if (data && data.opening_hours) {
+          try {
+            setStoreOpeningHours(JSON.parse(data.opening_hours));
+          } catch (e) {
+            console.error("Erro ao fazer parse dos horários da loja:", e);
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao buscar detalhes da loja:", error);
+      }
+    }
+    fetchStoreDetails();
+  }, [storeInfo?.id]);
 
   useEffect(() => {
     async function fetchVehicles() {
@@ -152,7 +174,38 @@ export default function Checkout() {
     ":" +
     String(now.getMinutes()).padStart(2, "0");
 
-  const storeTimeSlots = ["09:00", "10:30", "14:00", "15:30", "16:45"];
+  const getDynamicSlots = () => {
+    if (!checkoutData.date) return [];
+    
+    const dateParts = checkoutData.date.split("-");
+    if (dateParts.length !== 3) return [];
+    
+    const selectedDate = new Date(
+      Number(dateParts[0]),
+      Number(dateParts[1]) - 1,
+      Number(dateParts[2])
+    );
+    
+    const dayOfWeekMap = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"];
+    const dayKey = dayOfWeekMap[selectedDate.getDay()];
+    
+    if (!storeOpeningHours) {
+      return ["09:00", "10:30", "14:00", "15:30", "16:45"];
+    }
+    
+    const dayConfig = storeOpeningHours[dayKey];
+    if (!dayConfig || !dayConfig.open) {
+      return [];
+    }
+    
+    if (dayConfig.slots && Array.isArray(dayConfig.slots)) {
+      return dayConfig.slots.map((s: any) => s.time);
+    }
+    
+    return ["09:00", "10:30", "14:00", "15:30", "16:45"];
+  };
+
+  const storeTimeSlots = getDynamicSlots();
 
   const availableTimes = storeTimeSlots.filter((time) => {
     const isBooked = bookedTimes.includes(time);
