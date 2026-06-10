@@ -7,11 +7,20 @@ import { useEffect, useState } from "react";
 import { getStoreProfile, uploadStoreImage, updateStoreProfile } from "@/services/storeProfile.service";
 import { useAuth } from "@/hooks/useAuth";
 import toast from "react-hot-toast";
+import ConfigureSlotsModal from "./modals/ConfigureSlotsModal";
+
+import { Calendar } from "lucide-react";
+
+type TimeSlot = {
+  time: string;
+  capacity: number;
+};
 
 type DaySchedule = {
   open: boolean;
   start: string;
   end: string;
+  slots?: TimeSlot[];
 };
 
 type WeeklySchedule = {
@@ -19,13 +28,13 @@ type WeeklySchedule = {
 };
 
 const DEFAULT_SCHEDULE: WeeklySchedule = {
-  seg: { open: true, start: "08:00", end: "18:00" },
-  ter: { open: true, start: "08:00", end: "18:00" },
-  qua: { open: true, start: "08:00", end: "18:00" },
-  qui: { open: true, start: "08:00", end: "18:00" },
-  sex: { open: true, start: "08:00", end: "18:00" },
-  sab: { open: true, start: "08:00", end: "12:00" },
-  dom: { open: false, start: "00:00", end: "00:00" },
+  seg: { open: true, start: "08:00", end: "18:00", slots: [{ time: "09:00", capacity: 1 }, { time: "10:30", capacity: 1 }, { time: "14:00", capacity: 1 }, { time: "15:30", capacity: 1 }, { time: "16:45", capacity: 1 }] },
+  ter: { open: true, start: "08:00", end: "18:00", slots: [{ time: "09:00", capacity: 1 }, { time: "10:30", capacity: 1 }, { time: "14:00", capacity: 1 }, { time: "15:30", capacity: 1 }, { time: "16:45", capacity: 1 }] },
+  qua: { open: true, start: "08:00", end: "18:00", slots: [{ time: "09:00", capacity: 1 }, { time: "10:30", capacity: 1 }, { time: "14:00", capacity: 1 }, { time: "15:30", capacity: 1 }, { time: "16:45", capacity: 1 }] },
+  qui: { open: true, start: "08:00", end: "18:00", slots: [{ time: "09:00", capacity: 1 }, { time: "10:30", capacity: 1 }, { time: "14:00", capacity: 1 }, { time: "15:30", capacity: 1 }, { time: "16:45", capacity: 1 }] },
+  sex: { open: true, start: "08:00", end: "18:00", slots: [{ time: "09:00", capacity: 1 }, { time: "10:30", capacity: 1 }, { time: "14:00", capacity: 1 }, { time: "15:30", capacity: 1 }, { time: "16:45", capacity: 1 }] },
+  sab: { open: true, start: "08:00", end: "12:00", slots: [{ time: "09:00", capacity: 1 }, { time: "10:30", capacity: 1 }] },
+  dom: { open: false, start: "00:00", end: "00:00", slots: [] },
 };
 
 const dayNames: { [key: string]: string } = {
@@ -41,6 +50,7 @@ const dayNames: { [key: string]: string } = {
 export default function StoreProfile() {
   const { user, updateUser } = useAuth();
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [isSlotsModalOpen, setIsSlotsModalOpen] = useState(false);
 
   const [storeData, setStoreData] = useState({
     name: "",
@@ -88,7 +98,18 @@ export default function StoreProfile() {
         const rawHours = rawStore.opening_hours;
         if (rawHours && rawHours.trim().startsWith("{")) {
           try {
-            setWeeklySchedule(JSON.parse(rawHours));
+            const parsed = JSON.parse(rawHours);
+            const normalized: WeeklySchedule = { ...DEFAULT_SCHEDULE };
+            Object.keys(parsed).forEach((day) => {
+              if (parsed[day]) {
+                normalized[day] = {
+                  ...normalized[day],
+                  ...parsed[day],
+                  slots: parsed[day].slots || normalized[day].slots || [],
+                };
+              }
+            });
+            setWeeklySchedule(normalized);
           } catch (e) {
             console.error("Erro ao fazer parse dos horários:", e);
           }
@@ -137,6 +158,7 @@ export default function StoreProfile() {
   ) {
     const { name, value } = e.target;
     let val = value;
+
     if (name === "cnpj") val = maskCNPJ(value);
     if (name === "phone") val = maskPhone(value);
     if (name === "zip_code") val = maskCEP(value);
@@ -147,25 +169,7 @@ export default function StoreProfile() {
     }));
   }
 
-  const handleDayToggle = (day: string) => {
-    setWeeklySchedule((prev) => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        open: !prev[day].open,
-      },
-    }));
-  };
 
-  const handleTimeChange = (day: string, field: "start" | "end", value: string) => {
-    setWeeklySchedule((prev) => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        [field]: value,
-      },
-    }));
-  };
 
   const handleCepLookup = async (cep: string) => {
     const cleanCep = cep.replace(/\D/g, "");
@@ -528,49 +532,45 @@ export default function StoreProfile() {
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  {Object.keys(weeklySchedule).map((day) => {
-                    const sched = weeklySchedule[day];
-                    return (
-                      <div key={day} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-zinc-50 rounded-lg border border-zinc-200">
-                        <div className="flex items-center gap-2.5 min-w-[130px]">
-                          <input
-                            type="checkbox"
-                            checked={sched.open}
-                            onChange={() => handleDayToggle(day)}
-                            className="w-4 h-4 text-[#820000] border-zinc-300 rounded focus:ring-[#820000]/20 cursor-pointer"
-                          />
-                          <span className="text-sm font-bold text-zinc-800">
-                            {dayNames[day]}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 flex-1 sm:justify-end">
+                <div className="space-y-4">
+                  <div className="bg-zinc-50 rounded-lg border border-zinc-200 p-4 divide-y divide-zinc-200/60">
+                    {Object.keys(weeklySchedule).map((day) => {
+                      const sched = weeklySchedule[day];
+                      const slotsCount = sched.slots ? sched.slots.length : 0;
+                      return (
+                        <div key={day} className="flex justify-between py-2 first:pt-0 last:pb-0 text-sm">
+                          <span className="font-semibold text-zinc-700">{dayNames[day]}</span>
                           {sched.open ? (
-                            <div className="flex items-center gap-1.5">
-                              <input
-                                type="time"
-                                value={sched.start}
-                                onChange={(e) => handleTimeChange(day, "start", e.target.value)}
-                                className="rounded border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
-                              />
-                              <span className="text-xs text-zinc-400 font-bold">às</span>
-                              <input
-                                type="time"
-                                value={sched.end}
-                                onChange={(e) => handleTimeChange(day, "end", e.target.value)}
-                                className="rounded border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#820000]/20 focus:border-[#820000]"
-                              />
+                            <div className="text-right flex items-center gap-2">
+                              <span className="font-medium text-zinc-800">{sched.start} às {sched.end}</span>
+                              <span className="text-xs font-semibold bg-zinc-200/60 text-zinc-600 px-2 py-0.5 rounded-full">
+                                {slotsCount === 1 ? "1 horário" : `${slotsCount} horários`}
+                              </span>
                             </div>
                           ) : (
-                            <span className="text-xs font-bold text-zinc-400 tracking-wider uppercase">
-                              Fechado
-                            </span>
+                            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Fechado</span>
                           )}
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsSlotsModalOpen(true)}
+                    className="w-full !rounded-md border-[#820000] text-[#820000] hover:bg-[#820000]/5 font-bold flex items-center justify-center gap-2"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    Configurar Horários e Vagas
+                  </Button>
+
+                  <ConfigureSlotsModal
+                    isOpen={isSlotsModalOpen}
+                    onClose={() => setIsSlotsModalOpen(false)}
+                    weeklySchedule={weeklySchedule}
+                    onSave={(newSchedule) => setWeeklySchedule(newSchedule)}
+                  />
                 </div>
               </div>
             </div>

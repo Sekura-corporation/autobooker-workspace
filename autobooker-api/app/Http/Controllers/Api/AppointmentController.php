@@ -56,15 +56,72 @@ class AppointmentController extends Controller
             ], 422);
         }
 
-        $alreadyExists = Appointment::where('store_id', (int) $validated['storeId'])
+        $store = \App\Models\Store::find((int) $validated['storeId']);
+        if (!$store) {
+            return response()->json([
+                'message' => 'Estética não encontrada.',
+            ], 404);
+        }
+
+        $dayOfWeekMap = [
+            0 => 'dom',
+            1 => 'seg',
+            2 => 'ter',
+            3 => 'qua',
+            4 => 'qui',
+            5 => 'sex',
+            6 => 'sab',
+        ];
+        $dayKey = $dayOfWeekMap[$scheduled->dayOfWeek] ?? 'seg';
+
+        $openingHours = [];
+        if ($store->opening_hours && is_string($store->opening_hours)) {
+            $openingHours = json_decode($store->opening_hours, true) ?? [];
+        }
+
+        $dayConfig = $openingHours[$dayKey] ?? null;
+        $capacity = 1;
+        $requestedTime = $scheduled->format('H:i');
+
+        if ($dayConfig && isset($dayConfig['open']) && $dayConfig['open']) {
+            if (isset($dayConfig['slots']) && is_array($dayConfig['slots'])) {
+                $foundSlot = false;
+                foreach ($dayConfig['slots'] as $slot) {
+                    $slotTime = $slot['time'] ?? '';
+                    if (substr($slotTime, 0, 5) === $requestedTime) {
+                        $capacity = (int) ($slot['capacity'] ?? 1);
+                        $foundSlot = true;
+                        break;
+                    }
+                }
+                // Se o lojista definiu slots e o cliente enviou um horário que NÃO está na lista de slots, bloqueia
+                if (!$foundSlot) {
+                    return response()->json([
+                        'message' => 'Horário indisponível para esta estética.',
+                    ], 422);
+                }
+            } else {
+                $capacity = 1;
+            }
+        } else {
+            return response()->json([
+                'message' => 'A estética está fechada neste dia.',
+            ], 422);
+        }
+
+        if ($capacity < 1) {
+            $capacity = 1;
+        }
+
+        $activeAppointmentsCount = Appointment::where('store_id', (int) $validated['storeId'])
             ->whereDate('appointment_date', $scheduled->toDateString())
             ->whereTime('appointment_time', $scheduled->format('H:i:s'))
             ->whereIn('status', ['pending', 'waiting', 'in_progress'])
-            ->exists();
+            ->count();
 
-        if ($alreadyExists) {
+        if ($activeAppointmentsCount >= $capacity) {
             return response()->json([
-                'message' => 'Este horário já está ocupado. Escolha outro horário.',
+                'message' => 'Este horário atingiu o limite de vagas disponíveis. Escolha outro horário.',
             ], 422);
         }
 

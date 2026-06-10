@@ -99,18 +99,64 @@ class StoreController extends Controller
 
     public function bookedTimes(Request $request, Store $store)
     {
-    $validated = $request->validate([
-        'date' => ['required', 'date'],
-    ]);
+        $validated = $request->validate([
+            'date' => ['required', 'date'],
+        ]);
 
-    $times = Appointment::where('store_id', $store->id)
-        ->whereDate('appointment_date', $validated['date'])
-        ->whereIn('status', ['pending', 'waiting', 'in_progress'])
-        ->pluck('appointment_time')
-        ->map(fn ($time) => substr($time, 0, 5))
-        ->values();
+        $carbonDate = \Illuminate\Support\Carbon::parse($validated['date']);
+        $dayOfWeekMap = [
+            0 => 'dom',
+            1 => 'seg',
+            2 => 'ter',
+            3 => 'qua',
+            4 => 'qui',
+            5 => 'sex',
+            6 => 'sab',
+        ];
+        $dayKey = $dayOfWeekMap[$carbonDate->dayOfWeek] ?? 'seg';
 
-    return response()->json($times);
+        $openingHours = [];
+        if ($store->opening_hours && is_string($store->opening_hours)) {
+            $openingHours = json_decode($store->opening_hours, true) ?? [];
+        }
+
+        $dayConfig = $openingHours[$dayKey] ?? null;
+        $slots = [];
+
+        if ($dayConfig && isset($dayConfig['open']) && $dayConfig['open']) {
+            if (isset($dayConfig['slots']) && is_array($dayConfig['slots'])) {
+                $slots = $dayConfig['slots'];
+            } else {
+                $defaultTimes = ["09:00", "10:30", "14:00", "15:30", "16:45"];
+                foreach ($defaultTimes as $time) {
+                    $slots[] = ['time' => $time, 'capacity' => 1];
+                }
+            }
+        }
+
+        $appointments = Appointment::where('store_id', $store->id)
+            ->whereDate('appointment_date', $validated['date'])
+            ->whereIn('status', ['pending', 'waiting', 'in_progress'])
+            ->pluck('appointment_time')
+            ->map(fn ($time) => substr($time, 0, 5))
+            ->toArray();
+
+        $appointmentCounts = array_count_values($appointments);
+
+        $bookedTimes = [];
+        foreach ($slots as $slot) {
+            $time = $slot['time'] ?? '';
+            $capacity = (int) ($slot['capacity'] ?? 1);
+            if ($capacity < 1) {
+                $capacity = 1;
+            }
+            $count = $appointmentCounts[$time] ?? 0;
+            if ($count >= $capacity) {
+                $bookedTimes[] = $time;
+            }
+        }
+
+        return response()->json($bookedTimes);
     }
 
     public function rewards(Store $store)
